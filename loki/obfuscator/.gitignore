@@ -1,0 +1,10 @@
+target
+*.lock
+alu*.txt
+byte_code.bin
+byte_code.txt
+llvm_input_after_preprocessing.txt
+llvm_input_initial.txt
+test_data/
+variable_map.txt
+equiv_classes.json

@@ -1,0 +1,9 @@
+[package]
+name = "ir_test"
+version = "0.1.0"
+authors = ["Tim Blazytko <tim.blazytko@rub.de>"]
+
+[dependencies]
+intermediate_language = {path = "../intermediate_language" }
+seer-z3 = { path = "../z3-rs" }
+rand = "~0"

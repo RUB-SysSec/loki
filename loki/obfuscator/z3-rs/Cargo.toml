@@ -1,0 +1,24 @@
+[package]
+name = "seer-z3"
+version = "0.1.2"
+authors = ["David Renshaw <david@sandstorm.io>"]
+
+description = "High-level rust bindings for the Z3 SMT solver from Microsoft Research"
+license = "MIT"
+keywords = ["FFI", "SMT", "satisfiability", "solver"]
+readme = "README.md"
+homepage = "https://github.com/dwrensha/z3-rs"
+repository = "https://github.com/dwrensha/z3-rs.git"
+
+[profile.release]
+lto = true
+
+[dependencies]
+libc = "0.2"
+log = "0.3"
+lazy_static = "1.0"
+z3-sys = "0.3"
+
+[dev-dependencies]
+semver = "~0.2.1"
+env_logger = "0.3"

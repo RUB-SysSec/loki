@@ -1,0 +1,9 @@
+[workspace]
+
+members = [
+  "vm_alu",
+  "intermediate_language",
+  "z3-rs",
+  "equivalence_classes",
+  "ir_test"
+]

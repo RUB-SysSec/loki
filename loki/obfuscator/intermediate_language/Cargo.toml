@@ -1,0 +1,17 @@
+[package]
+name = "intermediate_language"
+version = "0.1.0"
+authors = ["Tim Blazytko <tim.blazytko@rub.de>", "Moritz Schloegel <moritz.schloegel@rub.de>"]
+
+[profile.release]
+lto = true
+
+[dependencies]
+serde="~1"
+serde_json="~1"
+serde_derive="~1"
+fnv="~1"
+seer-z3 = { path = "../z3-rs" }
+
+[lints]
+needless_return = "allow"

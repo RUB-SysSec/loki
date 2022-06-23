@@ -1,0 +1,192 @@
+Changes between 1.4.2 and 1.4.3:
+--------------------------------
+
+  * Fix opening non-ASCII paths in Windows
+  * Fix potential buffer overflow if PATH_MAX is reached
+
+
+Changes between 1.4.1 and 1.4.2:
+--------------------------------
+
+  * Fix buffer overflow when region mask is 0x0
+  * Fix invalid free on Open
+
+
+Changes between 1.4.0 and 1.4.1:
+--------------------------------
+
+  * Fix crashes in cache directory creation
+  * Fix cases where the cache directory was not used
+
+
+Changes between 1.3.99 and 1.4.0:
+---------------------------------
+
+  * Add key caching on Android
+  * Fix leaks, win32 build breakage, file descriptor initialization
+  * Expose version.h
+
+
+Changes between 1.3.0 and 1.3.99:
+---------------------------------
+
+  * Drop support for HP-UX.
+  * Drop support for Windows 9x and Windows NT.
+    Windows 2000 is now required.
+  * Replace BeOS support by Haiku support.
+  * Add dvdcss_open_stream() to public API. This allows installing custom
+    callback functions for accessing DVD, e.g. over the network.
+  * dvdcss_error() now returns "const char *" instead of "char *".
+  * Drop support for MSVC versions before 2010.
+  * Raw device access now errors out if the device cannot be opened.
+  * Miscellaneous cleanups to code, documentation, build system.
+
+
+Changes between 1.2.13 and 1.3.0:
+---------------------------------
+
+  * Dropped deprecated, undocumented API:
+    - the function dvdcss_title()
+    - the type dvdcss_handle
+    - the variable dvdcss_interface_2
+  * Drop support for Windows 98 and Windows NT 4.0.
+    Windows 98 SE with IE 5.0 and Windows NT 4.0 SP4 with IE 5.0 are required.
+  * Support for Android
+
+
+Changes between 1.2.12 and 1.2.13:
+----------------------------------
+
+  * Drop BSD/OS and Windows 95 support.
+  * Rewrite most of the build system and simplify it.
+  * System-dependent code cleanup
+  * Move to Git and rewrite the history to get proper authorship.
+  * Drop LaTeX documentation.
+  * Fix build on various systems including MSVC.
+
+
+Changes between 1.2.11 and 1.2.12:
+----------------------------------
+
+  * Fix regression with RPC-I drive handling.
+
+
+Changes between 1.2.10 and 1.2.11:
+----------------------------------
+
+  * improvements with RPC-II handling
+  * more robust key retrieval
+  * fixes for MinGW compilation
+  * fixes for OS/2 compilation
+  * various bug fixes for small issues, memleaks, crashes and build problems
+
+
+Changes between 1.2.9 and 1.2.10:
+---------------------------------
+
+  * DVD drive autodetection
+  * new dvdcss_is_scrambled() function
+  * various failure recovery improvements
+  * accept "X:\", as well as "X:" as device name
+  * various bug fixes
+
+Changes between 1.2.8 and 1.2.9:
+--------------------------------
+
+  * more robust key caching
+  * support for cache directory tags
+  * improved seeking on Win32
+  * support for Solaris libsmedia library
+
+Changes between 1.2.7 and 1.2.8:
+--------------------------------
+
+  * Win32 fix for encrypted DVDs
+  * workaround for strange discs that report read errors seemingly at random
+
+Changes between 1.2.6 and 1.2.7:
+--------------------------------
+
+  * key caching activated by default
+  * fix for collisions between cached keys
+  * packaging improvements for Debian
+  * packaging improvements for RPM-based distributions
+
+Changes between 1.2.5 and 1.2.6:
+--------------------------------
+
+  * compilation fix for most Unixes
+
+Changes between 1.2.4 and 1.2.5:
+--------------------------------
+
+  * key cache support
+  * improved robustness in case of read errors
+  * now builds under Cygwin
+  * now builds under Microsoft Visual C++
+
+Changes between 1.2.3 and 1.2.4:
+--------------------------------
+
+  * Administrator privileges are no longer required under Windows NT/2000/XP.
+
+Changes between 1.2.2 and 1.2.3:
+--------------------------------
+
+  * many Windows bug fixes
+  * workaround for drives which prevent key decryption
+
+Changes between 1.2.1 and 1.2.2:
+--------------------------------
+
+  * fix for the "ioctl_ReadTitleKey failed" bug on RPC2 drives
+  * better error checking
+  * improved documentation
+  * OS/2 port
+
+Changes between 1.2.0 and 1.2.1:
+--------------------------------
+
+  * fix for discs with a mismatched region
+  * QNX port
+
+Changes between 1.1.1 and 1.2.0:
+--------------------------------
+
+  * fix for a crash when an unencrypted sector is found on a scrambled disc
+  * stability enhancements
+
+Changes between 1.1.0 and 1.1.1:
+--------------------------------
+
+  * compilation fixes for BeOS, IRIX, OpenBSD
+
+Changes between 1.0.0 and 1.1.0:
+--------------------------------
+
+  * merged all patches from the Ogle group
+  * lots of bug fixes
+  * HP-UX port
+  * better error recovery
+  * third descrambling implementation
+
+Changes between 0.0.3 and 1.0.0:
+--------------------------------
+
+  * stable API
+  * OpenBSD port
+  * NetBSD port
+  * Mac OS X port
+
+Changes between 0.0.2 and 0.0.3:
+--------------------------------
+
+  * fix to access the whole device under Win32
+  * BSD/OS port
+  * Solaris port
+
+Changes between 0.0.1 and 0.0.2:
+--------------------------------
+
+  * internal key cache mechanism
+  * stability fixes

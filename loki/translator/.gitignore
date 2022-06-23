@@ -1,0 +1,44 @@
+# C++, compiled objects
+*.so
+*.o
+*.obj
+*.a
+*.lib
+*.out
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.mypy_cache
+.pylintrc
+
+# LLVM
+*.bc
+*.ll
+*.s
+
+# IDE
+.idea/
+*.cbp
+.vscode
+
+# CMake
+CMakeLists.txt.user
+CMakeCache.txt
+CMakeFiles
+CMakeScripts
+Testing
+Makefile
+cmake_install.cmake
+install_manifest.txt
+compile_commands.json
+CTestTestfile.cmake
+_deps
+
+# Specific
+bin/
+llvm
+test_all.log
+test_random_inputs.log
+src/template.cpp.orig

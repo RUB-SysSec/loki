@@ -1,0 +1,30 @@
+[package]
+name = "equivalence_classes"
+version = "0.1.0"
+authors = ["Tim Blazytko <tim.blazytko@rub.de>", "Moritz Schloegel <moritz.schloegel@rub.de>"]
+edition = "2018"
+
+
+[profile.release]
+lto = true
+
+[dependencies]
+intermediate_language = {path = "../intermediate_language" }
+seer-z3 = { path = "../z3-rs" }
+serde = { version = "~1", features = ["derive"] }
+serde_json="~1"
+rmp="~0"
+rmp-serde="~1"
+rand="~0"
+rayon="~1"
+blake2="0.9.2"
+glob="~0"
+
+
+[[bin]]
+name = "equivalence_classes"
+path = "src/main.rs"
+
+[[bin]]
+name = "prove"
+path = "src/prove.rs"

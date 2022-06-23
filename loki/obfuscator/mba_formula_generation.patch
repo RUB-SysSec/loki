@@ -1,0 +1,186 @@
+diff --git a/loki/obfuscator/vm_alu/Cargo.toml b/vm_alu/Cargo.toml
+index 47f5050..daff0c2 100644
+--- a/loki/obfuscator/vm_alu/Cargo.toml
++++ b/loki/obfuscator/vm_alu/Cargo.toml
+@@ -20,6 +20,7 @@ rayon="~1"
+ itertools="~0"
+ rmp="~0"
+ rmp-serde="~1"
++clap="*"
+ 
+ [[bin]]
+ name = "eval_smt"
+diff --git a/loki/obfuscator/vm_alu/src/config.rs b/vm_alu/src/config.rs
+index 4a78810..1e5d21a 100644
+--- a/loki/obfuscator/vm_alu/src/config.rs
++++ b/loki/obfuscator/vm_alu/src/config.rs
+@@ -17,7 +17,7 @@ pub struct Config {
+ }
+ 
+ pub const CONFIG: Config = Config {
+-    rewrite_mba: false,
++    rewrite_mba: true,
+     superoptimization: true,
+     schedule_non_deterministic: true,
+     handler_duplication: false,
+diff --git a/loki/obfuscator/vm_alu/src/main.rs b/vm_alu/src/main.rs
+index 8fd16dc..902ade7 100644
+--- a/loki/obfuscator/vm_alu/src/main.rs
++++ b/loki/obfuscator/vm_alu/src/main.rs
+@@ -1,71 +1,62 @@
+-use rayon::prelude::*;
+-use std::fs::create_dir_all;
+-use std::time::Instant;
+-use vm_alu::alu::meta_alu::MetaALU;
+-use vm_alu::bytecode::translator::ByteCodeTranslator;
+-use vm_alu::config::CONFIG;
+-use vm_alu::emulator::emulator::Verificator;
+-use vm_alu::llvm::llvm_input_data::LLVMInputData;
++use intermediate_language::il::expression_utils::reg;
++use vm_alu::alu::postprocessor::ALUPostProcessor;
+ use vm_alu::term_rewriting::term_rewriter::TermRewriter;
+ 
+-fn generate_workdir(index: usize) -> String {
+-    let workdir = format!("{}/instances/vm_alu{:03}", CONFIG.eval_dir, index);
+-
+-    create_dir_all(format!("{}/debug_files", workdir))
+-        .expect("Could not create directory debug_files.");
+-    create_dir_all(format!("{}/alus", workdir)).expect("Could not create directory alus.");
+-
+-    workdir
+-}
++use clap::{Arg, App};
+ 
+ fn main() {
+-    create_dir_all(format!("{}/instances", CONFIG.eval_dir))
+-        .expect("Could not create directory instances.");
++    let matches = App::new("MBA generator")
++        .arg(Arg::with_name("count")
++            .short('c')
++            .long("count")
++            .value_name("FILE")
++            .help("how many MBAs to generate")
++            .takes_value(true))
++        .arg(Arg::with_name("depth")
++            .short('n')
++            .long("depth")
++            .help("number of recursive MBA applications")
++            .takes_value(true))
++        .arg(Arg::with_name("op")
++            .long("op")
++            .default_value("+")
++            .takes_value(true)
++            .help("Which operation (+ - ^ | & * <<) to execute"))
++        .get_matches();
++    let mut iterations: usize = 1000;
++    let mut depth: Option<usize> = Some(20);
++    if let Some(cnt) = matches.value_of("count") {
++        iterations = cnt.parse::<usize>().expect(&format!("Failed to parse count: {}", cnt));
++    }
++    if let Some(num) = matches.value_of("depth") {
++        depth = Some(num.parse::<usize>().expect(&format!("Failed to parse depth: {}", num)));
++    }
+ 
+     let term_rewriter = TermRewriter::new();
++    let x = reg("x", 64);
++    let y = reg("y", 64);
++    // let z = reg("z", 64);
++
++    let mut expr = x.clone() + y.clone();
++
++    if let Some(opstr) = matches.value_of("op") {
++        expr = match opstr {
++            "+" => x.clone() + y.clone(),
++            "-" => x.clone() - y.clone(),
++            "^" => x.clone() ^ y.clone(),
++            "|" => x.clone() | y.clone(),
++            "&" => x.clone() & y.clone(),
++            "*" => x.clone() * y.clone(),
++            "<<" => x.clone() << y.clone(),
++            _ => {
++                eprint!("Invalid operation: '{}' - must be one of the following: + - ^ | & * <<", opstr);
++                return;
++            },
++        };
++    }
+ 
+-    let num_cpu = 52;
+-
+-    let iterator: Vec<_> = (0..CONFIG.num_instances).into_iter().collect();
+-
+-    for chunk in iterator.chunks(num_cpu) {
+-        chunk.into_par_iter().for_each(|index| {
+-            let workdir = generate_workdir(*index);
+-            let build_time = Instant::now();
+-
+-            let llvm_input_data = LLVMInputData::from_file(
+-                &workdir,
+-                &format!("{}/src/lifted_input.txt", CONFIG.eval_dir),
+-            );
+-
+-            let meta_alu = MetaALU::new(&workdir, &llvm_input_data.blocks, &term_rewriter);
+-
+-            let (bytecode, arguments) = ByteCodeTranslator::process_data(
+-                &workdir,
+-                &llvm_input_data,
+-                meta_alu.keys,
+-                meta_alu.scheduler_map,
+-            );
+-
+-            let build_time_seconds = build_time.elapsed().as_secs_f64();
+-            let verification_time = Instant::now();
+-
+-            if CONFIG.verification_iterations > 0 && !Verificator::verify_transformation(
+-                &meta_alu.alu_semantics,
+-                &bytecode,
+-                &arguments,
+-                &llvm_input_data,
+-                CONFIG.verification_iterations,
+-            ) {
+-                assert!(false, "Verification failed!");
+-            }
+-            let file_name = format!("{}/timings.txt", workdir);
+-            let content = format!(
+-                "Build time: {},\nVerification time: {},\n",
+-                build_time_seconds,
+-                verification_time.elapsed().as_secs_f64()
+-            );
+-            std::fs::write(file_name, content).expect("Unable to write timings file");
+-        })
++    for _ in 0..iterations {
++        let mba = ALUPostProcessor::rewrite_expression(term_rewriter.rewrite_expr(expr.clone(), depth).simplify()).to_string().replace("p1", "x");
++        println!("{}", mba);
+     }
+ }
+diff --git a/loki/obfuscator/vm_alu/src/synthesis/mba.rs b/vm_alu/src/synthesis/mba.rs
+index 614af1b..3176418 100644
+--- a/loki/obfuscator/vm_alu/src/synthesis/mba.rs
++++ b/loki/obfuscator/vm_alu/src/synthesis/mba.rs
+@@ -10,7 +10,7 @@ pub fn rewrite_to_equivalent_mba(
+         return expr_orig;
+     }
+ 
+-    let expr = term_rewriter.rewrite_expr(expr_orig.clone());
++    let expr = term_rewriter.rewrite_expr(expr_orig.clone(), None);
+ 
+     expr
+ }
+diff --git a/loki/obfuscator/vm_alu/src/term_rewriting/term_rewriter.rs b/vm_alu/src/term_rewriting/term_rewriter.rs
+index f882a09..c356aad 100644
+--- a/loki/obfuscator/vm_alu/src/term_rewriting/term_rewriter.rs
++++ b/loki/obfuscator/vm_alu/src/term_rewriting/term_rewriter.rs
+@@ -138,9 +138,12 @@ impl TermRewriter {
+         rule
+     }
+ 
+-    pub fn rewrite_expr(&self, mut expr: LinearizedExpr) -> LinearizedExpr {
++    pub fn rewrite_expr(&self, mut expr: LinearizedExpr, depth: Option<usize>) -> LinearizedExpr {
+         // n: number of recursive MBA applications - at least 20, max 30
+-        let n = 20 + (thread_rng().gen::<usize>() % 11);
++        let mut n = 20 + (thread_rng().gen::<usize>() % 11);
++        if depth.is_some() {
++            n = depth.unwrap();
++        }
+         for index in 0..n {
+             let acceptance: f64 = match index {
+                 0..=1 => 0.7,

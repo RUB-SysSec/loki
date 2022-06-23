@@ -1,0 +1,125 @@
+diff --git a/loki/obfuscator/vm_alu/src/llvm/llvm_input_data.rs b/vm_alu/src/llvm/llvm_input_data.rs
+index 36897dc..aa62b1b 100644
+--- a/loki/obfuscator/vm_alu/src/llvm/llvm_input_data.rs
++++ b/loki/obfuscator/vm_alu/src/llvm/llvm_input_data.rs
+@@ -1,9 +1,7 @@
+ use crate::alu::semantics_builder::SemanticsBlock;
+-use crate::alu::superoptimizer::SuperOptimizer;
+ use crate::config::CONFIG;
+-use crate::emulator::preprocessor::InputEmulationPreprocessor;
+-use crate::llvm::postprocessor::LLVMInputDataPostProcessor;
+ use intermediate_language::il::assignment::Assignment;
++use intermediate_language::il::expression_utils::*;
+ use serde::{Deserialize, Serialize};
+ use std::fs;
+ use std::fs::File;
+@@ -37,34 +35,65 @@ pub struct LLVMInputData {
+ }
+ 
+ impl LLVMInputData {
+-    pub fn from_file(workdir: &String, file_path: &str) -> LLVMInputData {
+-        /* deserialize */
+-        let mut input_data = LLVMInputDataDeserialized::deserialize(file_path);
+-
+-        input_data.to_debug_file(&format!("{}/debug_files/llvm_input_initial.txt", workdir));
+-
+-        // postprocess instructions
+-        input_data.instructions_emulator =
+-            InputEmulationPreprocessor::rewrite_assignments(input_data.instructions_emulator);
+-
+-        input_data.instructions = LLVMInputDataPostProcessor::rewrite_assignments(
+-            input_data.instructions,
+-            &input_data.arguments,
+-        );
+-
+-        input_data.to_debug_file(&format!(
+-            "{}/debug_files/llvm_input_after_preprocessing.txt",
+-            workdir
+-        ));
+-
+-        /* supertoptimization*/
+-        if CONFIG.superoptimization {
+-            input_data.instructions = SuperOptimizer::run(input_data.instructions);
+-            input_data.to_debug_file(&format!(
+-                "{}/debug_files/llvm_input_after_superoptimization.txt",
+-                workdir
+-            ));
+-        }
++    pub fn from_file(_workdir: &String, _file_path: &str) -> LLVMInputData {
++        let mut input_data = LLVMInputData {
++            arguments: vec!["a".to_string(), "b".to_string()],
++            instructions: vec![],
++            instructions_emulator: vec![],
++            blocks: vec![],
++        };
++
++        input_data.instructions = vec![
++            /* padding */
++            Assignment::new(reg("r0", 64), reg("r0", 64)),
++            Assignment::new(reg("r0", 64), reg("r0", 64)),
++            Assignment::new(reg("r0", 64), reg("r0", 64)),
++            /* semantics 1*/
++            Assignment::new(reg("r0", 64), reg("a", 64) + reg("b", 64)),
++            /* padding */
++            Assignment::new(reg("r0", 64), reg("r0", 64)),
++            Assignment::new(reg("r0", 64), reg("r0", 64)),
++            Assignment::new(reg("r0", 64), reg("r0", 64)),
++            /* semantics 2*/
++            Assignment::new(reg("r0", 64), reg("a", 64) - reg("b", 64)),
++            /* padding */
++            Assignment::new(reg("r0", 64), reg("r0", 64)),
++            Assignment::new(reg("r0", 64), reg("r0", 64)),
++            Assignment::new(reg("r0", 64), reg("r0", 64)),
++            /* semantics 3*/
++            Assignment::new(reg("r0", 64), reg("a", 64) ^ reg("b", 64)),
++            /* padding */
++            Assignment::new(reg("r0", 64), reg("r0", 64)),
++            Assignment::new(reg("r0", 64), reg("r0", 64)),
++            Assignment::new(reg("r0", 64), reg("r0", 64)),
++            /* semantics 4*/
++            Assignment::new(reg("r0", 64), reg("a", 64) | reg("b", 64)),
++            /* padding */
++            Assignment::new(reg("r0", 64), reg("r0", 64)),
++            Assignment::new(reg("r0", 64), reg("r0", 64)),
++            Assignment::new(reg("r0", 64), reg("r0", 64)),
++            Assignment::new(reg("r0", 64), reg("r0", 64)),
++            Assignment::new(reg("r0", 64), reg("r0", 64)),
++            Assignment::new(reg("r0", 64), reg("r0", 64)),
++            /* semantics 5*/
++            Assignment::new(reg("r0", 64), reg("a", 64) & reg("b", 64)),
++            /* padding */
++            Assignment::new(reg("r0", 64), reg("r0", 64)),
++            Assignment::new(reg("r0", 64), reg("r0", 64)),
++            Assignment::new(reg("r0", 64), reg("r0", 64)),
++            Assignment::new(reg("r0", 64), reg("r0", 64)),
++            Assignment::new(reg("r0", 64), reg("r0", 64)),
++            /* semantics 6*/
++            Assignment::new(reg("r0", 64), reg("a", 64) * reg("b", 64)),
++            /* padding */
++            Assignment::new(reg("r0", 64), reg("r0", 64)),
++            Assignment::new(reg("r0", 64), reg("r0", 64)),
++            Assignment::new(reg("r0", 64), reg("r0", 64)),
++            Assignment::new(reg("r0", 64), reg("r0", 64)),
++            Assignment::new(reg("r0", 64), reg("r0", 64)),
++            /* semantics 7*/
++            Assignment::new(reg("r0", 64), shl_plain(reg("a", 64), reg("b", 64), 64)),
++        ];
+ 
+         /* TODO: add blocks to debug output */
+         input_data.blocks = input_data
+@@ -94,6 +123,7 @@ impl LLVMInputData {
+         ret
+     }
+ 
++    #[allow(dead_code)]
+     fn to_debug_file(&self, file_name: &str) {
+         self.verify();
+ 
+@@ -105,6 +135,7 @@ impl LLVMInputData {
+         write!(&mut file, "{}", self.to_string()).unwrap();
+     }
+ 
++    #[allow(dead_code)]
+     fn verify(&self) {
+         assert!(!self.instructions.is_empty(), "No LLVM instructions found.");
+         assert!(

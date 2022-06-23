@@ -1,0 +1,8 @@
+wheel
+orderedset
+z3-solver
+
+# Miasm dependencies
+future
+# need to pin this to 2.2.1 for miasm
+pyparsing==2.2.1

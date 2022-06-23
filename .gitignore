@@ -1,0 +1,9 @@
+vscode-data
+zsh_history
+bash_history
+
+__pycache__/
+
+plot*.pdf
+plot*.png
+*.log

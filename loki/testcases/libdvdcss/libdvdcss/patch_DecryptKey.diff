@@ -1,0 +1,71 @@
+diff --git a/src/css.c b/src/css.c
+index 55cb8df..202a245 100644
+--- a/src/css.c
++++ b/src/css.c
+@@ -56,6 +56,7 @@
+ #include "csstables.h"
+ #include "ioctl.h"
+ #include "device.h"
++#include "../../../instruction_handler_implementation/src/template.hpp"
+ 
+ #define PSZ_KEY_SIZE (DVD_KEY_SIZE * 3)
+ 
+@@ -989,57 +990,7 @@ static void CryptKey( int i_key_type, int i_variant,
+ static void DecryptKey( uint8_t invert, const uint8_t *p_key,
+                         const uint8_t *p_crypted, uint8_t *p_result )
+ {
+-    unsigned int    i_lfsr1_lo;
+-    unsigned int    i_lfsr1_hi;
+-    unsigned int    i_lfsr0;
+-    unsigned int    i_combined;
+-    uint8_t         o_lfsr0;
+-    uint8_t         o_lfsr1;
+-    uint8_t         k[5];
+-    int             i;
+-
+-    i_lfsr1_lo = p_key[0] | 0x100;
+-    i_lfsr1_hi = p_key[1];
+-
+-    i_lfsr0    = ( ( p_key[4] << 17 )
+-                 | ( p_key[3] << 9 )
+-                 | ( p_key[2] << 1 ) )
+-                 + 8 - ( p_key[2] & 7 );
+-    i_lfsr0    = ( p_css_tab4[i_lfsr0 & 0xff] << 24 ) |
+-                 ( p_css_tab4[( i_lfsr0 >> 8 ) & 0xff] << 16 ) |
+-                 ( p_css_tab4[( i_lfsr0 >> 16 ) & 0xff] << 8 ) |
+-                   p_css_tab4[( i_lfsr0 >> 24 ) & 0xff];
+-
+-    i_combined = 0;
+-    for( i = 0 ; i < DVD_KEY_SIZE ; ++i )
+-    {
+-        o_lfsr1     = p_css_tab2[i_lfsr1_hi] ^ p_css_tab3[i_lfsr1_lo];
+-        i_lfsr1_hi  = i_lfsr1_lo >> 1;
+-        i_lfsr1_lo  = ( ( i_lfsr1_lo & 1 ) << 8 ) ^ o_lfsr1;
+-        o_lfsr1     = p_css_tab4[o_lfsr1];
+-
+-        o_lfsr0 = ((((((( i_lfsr0 >> 8 ) ^ i_lfsr0 ) >> 1 )
+-                        ^ i_lfsr0 ) >> 3 ) ^ i_lfsr0 ) >> 7 );
+-        i_lfsr0 = ( i_lfsr0 >> 8 ) | ( o_lfsr0 << 24 );
+-
+-        i_combined += ( o_lfsr0 ^ invert ) + o_lfsr1;
+-        k[i] = i_combined & 0xff;
+-        i_combined >>= 8;
+-    }
+-
+-    p_result[4] = k[4] ^ p_css_tab1[p_crypted[4]] ^ p_crypted[3];
+-    p_result[3] = k[3] ^ p_css_tab1[p_crypted[3]] ^ p_crypted[2];
+-    p_result[2] = k[2] ^ p_css_tab1[p_crypted[2]] ^ p_crypted[1];
+-    p_result[1] = k[1] ^ p_css_tab1[p_crypted[1]] ^ p_crypted[0];
+-    p_result[0] = k[0] ^ p_css_tab1[p_crypted[0]] ^ p_result[4];
+-
+-    p_result[4] = k[4] ^ p_css_tab1[p_result[4]] ^ p_result[3];
+-    p_result[3] = k[3] ^ p_css_tab1[p_result[3]] ^ p_result[2];
+-    p_result[2] = k[2] ^ p_css_tab1[p_result[2]] ^ p_result[1];
+-    p_result[1] = k[1] ^ p_css_tab1[p_result[1]] ^ p_result[0];
+-    p_result[0] = k[0] ^ p_css_tab1[p_result[0]];
+-
+-    return;
++    vm_entry_wrapper( invert, p_key, p_crypted, p_result );
+ }
+ 
+ /*****************************************************************************

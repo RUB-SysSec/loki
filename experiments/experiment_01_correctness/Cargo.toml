@@ -1,0 +1,15 @@
+[workspace]
+members = [
+    "input-generator",
+    "correctness-oracle",
+    "correctness-checker-runtime",
+]
+
+[alias]
+b = "build --workspace --all-targets"
+r = "run"
+t = "test"
+c = "clean"
+
+[profile.dev]
+opt-level = 3

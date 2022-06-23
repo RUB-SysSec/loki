@@ -1,0 +1,26 @@
+[package]
+name = "vm_alu"
+version = "0.1.0"
+authors = ["Tim Blazytko <tim.blazytko@rub.de>", "Moritz Schloegel <moritz.schloegel@rub.de>"]
+edition = "2018"
+
+[profile.release]
+lto = true
+debug = true
+
+[dependencies]
+intermediate_language = {path = "../intermediate_language" }
+equivalence_classes = {path = "../equivalence_classes" }
+seer-z3 = { path = "../z3-rs" }
+rand = "0.7.3"
+primal-check="~0"
+serde = { version = "~1", features = ["derive"] }
+serde_json="~1"
+rayon="~1"
+itertools="~0"
+rmp="~0"
+rmp-serde="~1"
+
+[[bin]]
+name = "eval_smt"
+path = "src/eval_tools/smt.rs"

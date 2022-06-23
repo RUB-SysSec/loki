@@ -1,0 +1,1127 @@
+diff --git a/Cargo.toml b/Cargo.toml
+index 53b629f..7df66e7 100644
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -10,6 +10,9 @@ readme = "README.md"
+ homepage = "https://github.com/dwrensha/z3-rs"
+ repository = "https://github.com/dwrensha/z3-rs.git"
+ 
++[profile.release]
++lto = true
++
+ [dependencies]
+ libc = "0.2"
+ log = "0.3"
+diff --git a/src/ast.rs b/src/ast.rs
+index 9b760d0..40f66ca 100644
+--- a/src/ast.rs
++++ b/src/ast.rs
+@@ -1,12 +1,12 @@
++use std::cmp::{Eq, PartialEq};
++use std::ffi::CString;
++use std::hash::{Hash, Hasher};
+ use z3_sys::*;
++use Ast;
+ use Context;
+ use Sort;
+ use Symbol;
+-use Ast;
+ use Z3_MUTEX;
+-use std::hash::{Hash, Hasher};
+-use std::cmp::{PartialEq, Eq};
+-use std::ffi::CString;
+ 
+ macro_rules! unop {
+     ( $f:ident, $z3fn:ident ) => {
+@@ -15,7 +15,7 @@ macro_rules! unop {
+                 let guard = Z3_MUTEX.lock().unwrap();
+                 $z3fn(self.ctx.z3_ctx, self.z3_ast)
+             })
+-    }
++        }
+     };
+ }
+ 
+@@ -26,7 +26,7 @@ macro_rules! binop {
+                 let guard = Z3_MUTEX.lock().unwrap();
+                 $z3fn(self.ctx.z3_ctx, self.z3_ast, other.z3_ast)
+             })
+-    }
++        }
+     };
+ }
+ 
+@@ -37,7 +37,7 @@ macro_rules! trinop {
+                 let guard = Z3_MUTEX.lock().unwrap();
+                 $z3fn(self.ctx.z3_ctx, self.z3_ast, a.z3_ast, b.z3_ast)
+             })
+-    }
++        }
+     };
+ }
+ 
+@@ -53,12 +53,11 @@ macro_rules! varop {
+                 assert!(tmp.len() <= 0xffffffff);
+                 $z3fn(self.ctx.z3_ctx, tmp.len() as u32, tmp.as_ptr())
+             })
+-    }
++        }
+     };
+ }
+ 
+ impl<'ctx> Ast<'ctx> {
+-
+     pub fn new(ctx: &Context, ast: Z3_ast) -> Ast {
+         assert!(!ast.is_null());
+         Ast {
+@@ -68,21 +67,18 @@ impl<'ctx> Ast<'ctx> {
+                 let guard = Z3_MUTEX.lock().unwrap();
+                 Z3_inc_ref(ctx.z3_ctx, ast);
+                 ast
+-            }
++            },
+         }
+     }
+ 
+-    pub fn new_const(sym: &Symbol<'ctx>,
+-                     sort: &Sort<'ctx>) -> Ast<'ctx> {
++    pub fn new_const(sym: &Symbol<'ctx>, sort: &Sort<'ctx>) -> Ast<'ctx> {
+         Ast::new(sym.ctx, unsafe {
+             let guard = Z3_MUTEX.lock().unwrap();
+             Z3_mk_const(sym.ctx.z3_ctx, sym.z3_sym, sort.z3_sort)
+         })
+     }
+ 
+-    pub fn fresh_const(ctx: &'ctx Context,
+-                       prefix: &str,
+-                       sort: &Sort<'ctx>) -> Ast<'ctx> {
++    pub fn fresh_const(ctx: &'ctx Context, prefix: &str, sort: &Sort<'ctx>) -> Ast<'ctx> {
+         Ast::new(ctx, unsafe {
+             let pp = CString::new(prefix).unwrap();
+             let p = pp.as_ptr();
+@@ -92,47 +88,45 @@ impl<'ctx> Ast<'ctx> {
+     }
+ 
+     pub fn from_bool(ctx: &'ctx Context, b: bool) -> Ast<'ctx> {
+-            Ast::new(ctx, unsafe {
+-                let guard = Z3_MUTEX.lock().unwrap();
+-                if b {
+-                    Z3_mk_true(ctx.z3_ctx)
+-                } else {
+-                    Z3_mk_false(ctx.z3_ctx)
+-                }
+-            })
++        Ast::new(ctx, unsafe {
++            let guard = Z3_MUTEX.lock().unwrap();
++            if b {
++                Z3_mk_true(ctx.z3_ctx)
++            } else {
++                Z3_mk_false(ctx.z3_ctx)
++            }
++        })
+     }
+ 
+     pub fn from_i64(ctx: &'ctx Context, i: i64) -> Ast<'ctx> {
+-            Ast::new(ctx, unsafe {
+-                let sort = ctx.int_sort();
+-                let guard = Z3_MUTEX.lock().unwrap();
+-                Z3_mk_int64(ctx.z3_ctx, i, sort.z3_sort)
+-            })
++        Ast::new(ctx, unsafe {
++            let sort = ctx.int_sort();
++            let guard = Z3_MUTEX.lock().unwrap();
++            Z3_mk_int64(ctx.z3_ctx, i, sort.z3_sort)
++        })
+     }
+ 
+     pub fn from_u64(ctx: &'ctx Context, u: u64) -> Ast<'ctx> {
+-            Ast::new(ctx, unsafe {
+-                let sort = ctx.int_sort();
+-                let guard = Z3_MUTEX.lock().unwrap();
+-                Z3_mk_unsigned_int64(ctx.z3_ctx, u, sort.z3_sort)
+-            })
++        Ast::new(ctx, unsafe {
++            let sort = ctx.int_sort();
++            let guard = Z3_MUTEX.lock().unwrap();
++            Z3_mk_unsigned_int64(ctx.z3_ctx, u, sort.z3_sort)
++        })
+     }
+ 
+     pub fn bv_from_u64(ctx: &'ctx Context, u: u64, sz: u32) -> Ast<'ctx> {
+-            Ast::new(ctx, unsafe {
+-                let sort = ctx.bitvector_sort(sz);
+-                let guard = Z3_MUTEX.lock().unwrap();
+-                Z3_mk_unsigned_int64(ctx.z3_ctx, u, sort.z3_sort)
+-            })
++        Ast::new(ctx, unsafe {
++            let sort = ctx.bitvector_sort(sz);
++            let guard = Z3_MUTEX.lock().unwrap();
++            Z3_mk_unsigned_int64(ctx.z3_ctx, u, sort.z3_sort)
++        })
+     }
+ 
+     pub fn from_real(ctx: &'ctx Context, num: i32, den: i32) -> Ast<'ctx> {
+-            Ast::new(ctx, unsafe {
+-                let guard = Z3_MUTEX.lock().unwrap();
+-                Z3_mk_real(ctx.z3_ctx,
+-                           num as ::libc::c_int,
+-                           den as ::libc::c_int)
+-            })
++        Ast::new(ctx, unsafe {
++            let guard = Z3_MUTEX.lock().unwrap();
++            Z3_mk_real(ctx.z3_ctx, num as ::libc::c_int, den as ::libc::c_int)
++        })
+     }
+ 
+     pub fn as_bool(&self) -> Option<bool> {
+@@ -141,7 +135,7 @@ impl<'ctx> Ast<'ctx> {
+             match Z3_get_bool_value(self.ctx.z3_ctx, self.z3_ast) {
+                 Z3_L_TRUE => Some(true),
+                 Z3_L_FALSE => Some(false),
+-                _ => None
++                _ => None,
+             }
+         }
+     }
+@@ -149,9 +143,8 @@ impl<'ctx> Ast<'ctx> {
+     pub fn as_i64(&self) -> Option<i64> {
+         unsafe {
+             let guard = Z3_MUTEX.lock().unwrap();
+-            let mut tmp : ::libc::c_longlong = 0;
+-            if Z3_TRUE == Z3_get_numeral_int64(self.ctx.z3_ctx,
+-                                               self.z3_ast, &mut tmp) {
++            let mut tmp: ::libc::c_longlong = 0;
++            if Z3_TRUE == Z3_get_numeral_int64(self.ctx.z3_ctx, self.z3_ast, &mut tmp) {
+                 Some(tmp)
+             } else {
+                 None
+@@ -162,9 +155,8 @@ impl<'ctx> Ast<'ctx> {
+     pub fn as_u64(&self) -> Option<u64> {
+         unsafe {
+             let guard = Z3_MUTEX.lock().unwrap();
+-            let mut tmp : ::libc::c_ulonglong = 0;
+-            if Z3_TRUE == Z3_get_numeral_uint64(self.ctx.z3_ctx,
+-                                                self.z3_ast, &mut tmp) {
++            let mut tmp: ::libc::c_ulonglong = 0;
++            if Z3_TRUE == Z3_get_numeral_uint64(self.ctx.z3_ctx, self.z3_ast, &mut tmp) {
+                 Some(tmp)
+             } else {
+                 None
+@@ -172,15 +164,13 @@ impl<'ctx> Ast<'ctx> {
+         }
+     }
+ 
+-    pub fn as_real(&self) -> Option<(i64,i64)> {
++    pub fn as_real(&self) -> Option<(i64, i64)> {
+         unsafe {
+             let guard = Z3_MUTEX.lock().unwrap();
+-            let mut num : i64 = 0;
+-            let mut den : i64 = 0;
+-            if Z3_TRUE == Z3_get_numeral_small(self.ctx.z3_ctx,
+-                                               self.z3_ast,
+-                                               &mut num, &mut den) {
+-                Some((num,den))
++            let mut num: i64 = 0;
++            let mut den: i64 = 0;
++            if Z3_TRUE == Z3_get_numeral_small(self.ctx.z3_ctx, self.z3_ast, &mut num, &mut den) {
++                Some((num, den))
+             } else {
+                 None
+             }
+@@ -189,22 +179,22 @@ impl<'ctx> Ast<'ctx> {
+ 
+     pub fn extract(&self, high: u32, low: u32) -> Ast<'ctx> {
+         Ast::new(self.ctx, unsafe {
+-                let guard = Z3_MUTEX.lock().unwrap();
+-                Z3_mk_extract(self.ctx.z3_ctx, high, low, self.z3_ast)
++            let guard = Z3_MUTEX.lock().unwrap();
++            Z3_mk_extract(self.ctx.z3_ctx, high, low, self.z3_ast)
+         })
+     }
+ 
+     pub fn zero_extend(&self, size: u32) -> Ast<'ctx> {
+         Ast::new(self.ctx, unsafe {
+-                let guard = Z3_MUTEX.lock().unwrap();
+-                Z3_mk_zero_ext(self.ctx.z3_ctx, size, self.z3_ast)
++            let guard = Z3_MUTEX.lock().unwrap();
++            Z3_mk_zero_ext(self.ctx.z3_ctx, size, self.z3_ast)
+         })
+     }
+ 
+     pub fn sign_extend(&self, size: u32) -> Ast<'ctx> {
+         Ast::new(self.ctx, unsafe {
+-                let guard = Z3_MUTEX.lock().unwrap();
+-                Z3_mk_sign_ext(self.ctx.z3_ctx, size, self.z3_ast)
++            let guard = Z3_MUTEX.lock().unwrap();
++            Z3_mk_sign_ext(self.ctx.z3_ctx, size, self.z3_ast)
+         })
+     }
+ 
+@@ -304,12 +294,8 @@ impl<'ctx> Hash for Ast<'ctx> {
+ 
+ impl<'ctx> PartialEq<Ast<'ctx>> for Ast<'ctx> {
+     fn eq(&self, other: &Ast<'ctx>) -> bool {
+-        unsafe {
+-            Z3_TRUE == Z3_is_eq_ast(self.ctx.z3_ctx,
+-                                    self.z3_ast,
+-                                    other.z3_ast)
+-        }
++        unsafe { Z3_TRUE == Z3_is_eq_ast(self.ctx.z3_ctx, self.z3_ast, other.z3_ast) }
+     }
+ }
+ 
+-impl<'ctx> Eq for Ast<'ctx> { }
++impl<'ctx> Eq for Ast<'ctx> {}
+diff --git a/src/config.rs b/src/config.rs
+index 0235075..86b68a5 100644
+--- a/src/config.rs
++++ b/src/config.rs
+@@ -1,7 +1,7 @@
++use std::ffi::CString;
+ use z3_sys::*;
+ use Config;
+ use Z3_MUTEX;
+-use std::ffi::CString;
+ 
+ impl Config {
+     pub fn new() -> Config {
+@@ -12,7 +12,7 @@ impl Config {
+                 let p = Z3_mk_config();
+                 debug!("new config {:p}", p);
+                 p
+-            }
++            },
+         }
+     }
+     pub fn set_param_value(&mut self, k: &str, v: &str) {
+@@ -21,9 +21,11 @@ impl Config {
+         self.kvs.push((ks, vs));
+         unsafe {
+             let guard = Z3_MUTEX.lock().unwrap();
+-            Z3_set_param_value(self.z3_cfg,
+-                               self.kvs.last().unwrap().0.as_ptr(),
+-                               self.kvs.last().unwrap().1.as_ptr());
++            Z3_set_param_value(
++                self.z3_cfg,
++                self.kvs.last().unwrap().0.as_ptr(),
++                self.kvs.last().unwrap().1.as_ptr(),
++            );
+         }
+     }
+ 
+@@ -32,23 +34,19 @@ impl Config {
+     }
+ 
+     // Helpers for common parameters
+-    pub fn set_proof_generation(&mut self, b: bool)
+-    {
++    pub fn set_proof_generation(&mut self, b: bool) {
+         self.set_bool_param_value("proof", b);
+     }
+ 
+-    pub fn set_model_generation(&mut self, b: bool)
+-    {
++    pub fn set_model_generation(&mut self, b: bool) {
+         self.set_bool_param_value("model", b);
+     }
+ 
+-    pub fn set_debug_ref_count(&mut self, b: bool)
+-    {
++    pub fn set_debug_ref_count(&mut self, b: bool) {
+         self.set_bool_param_value("debug_ref_count", b);
+     }
+ 
+-    pub fn set_timeout_msec(&mut self, ms: u64)
+-    {
++    pub fn set_timeout_msec(&mut self, ms: u64) {
+         self.set_param_value("timeout", &format!("{}", ms));
+     }
+ }
+diff --git a/src/context.rs b/src/context.rs
+index 1d8ef4b..ba50b09 100644
+--- a/src/context.rs
++++ b/src/context.rs
+@@ -1,9 +1,9 @@
+ use z3_sys::*;
++use Ast;
+ use Config;
+ use Context;
+ use Sort;
+ use Symbol;
+-use Ast;
+ use Z3_MUTEX;
+ 
+ impl Context {
+@@ -14,7 +14,7 @@ impl Context {
+                 let p = Z3_mk_context_rc(cfg.z3_cfg);
+                 debug!("new context {:p}", p);
+                 p
+-            }
++            },
+         }
+     }
+ 
+@@ -36,9 +36,7 @@ impl Context {
+         Sort::bitvector(self, sz)
+     }
+ 
+-    pub fn array_sort<'ctx>(&'ctx self,
+-                            domain: &Sort<'ctx>,
+-                            range: &Sort<'ctx>) -> Sort<'ctx> {
++    pub fn array_sort<'ctx>(&'ctx self, domain: &Sort<'ctx>, range: &Sort<'ctx>) -> Sort<'ctx> {
+         Sort::array(self, domain, range)
+     }
+ 
+diff --git a/src/lib.rs b/src/lib.rs
+index 469ccf8..b127dac 100644
+--- a/src/lib.rs
++++ b/src/lib.rs
+@@ -7,21 +7,21 @@ extern crate log;
+ #[macro_use]
+ extern crate lazy_static;
+ 
+-extern crate z3_sys;
+ extern crate libc;
++extern crate z3_sys;
+ 
+-use std::sync::Mutex;
+ use std::ffi::CString;
++use std::sync::Mutex;
+ use z3_sys::*;
+ 
+-mod sort;
++mod ast;
+ mod config;
+ mod context;
+-mod symbol;
+-mod ast;
+-mod solver;
+-mod optimize;
+ mod model;
++mod optimize;
++mod solver;
++mod sort;
++mod symbol;
+ 
+ // Z3 appears to be only mostly-threadsafe, a few initializers
+ // and such race; so we mutex-guard all access to the library.
+@@ -30,48 +30,41 @@ lazy_static! {
+ }
+ 
+ pub struct Config {
+-    kvs: Vec<(CString,CString)>,
+-    z3_cfg: Z3_config
++    kvs: Vec<(CString, CString)>,
++    z3_cfg: Z3_config,
+ }
+ 
+ pub struct Context {
+-    z3_ctx: Z3_context
++    z3_ctx: Z3_context,
+ }
+ 
+-pub struct Symbol<'ctx>
+-{
++pub struct Symbol<'ctx> {
+     ctx: &'ctx Context,
+     cst: Option<CString>,
+-    z3_sym: Z3_symbol
++    z3_sym: Z3_symbol,
+ }
+ 
+-pub struct Sort<'ctx>
+-{
++pub struct Sort<'ctx> {
+     ctx: &'ctx Context,
+-    z3_sort: Z3_sort
++    z3_sort: Z3_sort,
+ }
+ 
+-pub struct Ast<'ctx>
+-{
++pub struct Ast<'ctx> {
+     ctx: &'ctx Context,
+-    z3_ast: Z3_ast
++    z3_ast: Z3_ast,
+ }
+ 
+-pub struct Solver<'ctx>
+-{
++pub struct Solver<'ctx> {
+     ctx: &'ctx Context,
+-    z3_slv: Z3_solver
++    z3_slv: Z3_solver,
+ }
+ 
+-pub struct Model<'ctx>
+-{
++pub struct Model<'ctx> {
+     ctx: &'ctx Context,
+-    z3_mdl: Z3_model
++    z3_mdl: Z3_model,
+ }
+ 
+-pub struct Optimize<'ctx>
+-{
++pub struct Optimize<'ctx> {
+     ctx: &'ctx Context,
+-    z3_opt: Z3_optimize
++    z3_opt: Z3_optimize,
+ }
+-
+diff --git a/src/model.rs b/src/model.rs
+index 01679ff..e546fd2 100644
+--- a/src/model.rs
++++ b/src/model.rs
+@@ -1,8 +1,8 @@
+ use z3_sys::*;
+-use Solver;
+-use Optimize;
+-use Model;
+ use Ast;
++use Model;
++use Optimize;
++use Solver;
+ use Z3_MUTEX;
+ 
+ impl<'ctx> Model<'ctx> {
+@@ -14,7 +14,7 @@ impl<'ctx> Model<'ctx> {
+                 let m = Z3_solver_get_model(slv.ctx.z3_ctx, slv.z3_slv);
+                 Z3_model_inc_ref(slv.ctx.z3_ctx, m);
+                 m
+-            }
++            },
+         }
+     }
+ 
+@@ -26,21 +26,17 @@ impl<'ctx> Model<'ctx> {
+                 let m = Z3_optimize_get_model(opt.ctx.z3_ctx, opt.z3_opt);
+                 Z3_model_inc_ref(opt.ctx.z3_ctx, m);
+                 m
+-            }
++            },
+         }
+     }
+ 
+     pub fn eval(&self, ast: &Ast<'ctx>) -> Option<Ast<'ctx>> {
+         unsafe {
+-            let mut tmp : Z3_ast = ast.z3_ast;
++            let mut tmp: Z3_ast = ast.z3_ast;
+             let res;
+             {
+                 let guard = Z3_MUTEX.lock().unwrap();
+-                res = Z3_model_eval(self.ctx.z3_ctx,
+-                                    self.z3_mdl,
+-                                    ast.z3_ast,
+-                                    Z3_TRUE,
+-                                    &mut tmp)
++                res = Z3_model_eval(self.ctx.z3_ctx, self.z3_mdl, ast.z3_ast, Z3_TRUE, &mut tmp)
+             }
+             if res == Z3_TRUE {
+                 Some(Ast::new(self.ctx, tmp))
+diff --git a/src/optimize.rs b/src/optimize.rs
+index ff8585f..b9f5e67 100644
+--- a/src/optimize.rs
++++ b/src/optimize.rs
+@@ -1,8 +1,8 @@
+ use z3_sys::*;
++use Ast;
+ use Context;
+-use Optimize;
+ use Model;
+-use Ast;
++use Optimize;
+ use Z3_MUTEX;
+ 
+ impl<'ctx> Optimize<'ctx> {
+@@ -14,42 +14,35 @@ impl<'ctx> Optimize<'ctx> {
+                 let opt = Z3_mk_optimize(ctx.z3_ctx);
+                 Z3_optimize_inc_ref(ctx.z3_ctx, opt);
+                 opt
+-            }
++            },
+         }
+     }
+ 
+     pub fn assert(&self, ast: &Ast<'ctx>) {
+         unsafe {
+             let guard = Z3_MUTEX.lock().unwrap();
+-            Z3_optimize_assert(self.ctx.z3_ctx,
+-                               self.z3_opt,
+-                               ast.z3_ast);
++            Z3_optimize_assert(self.ctx.z3_ctx, self.z3_opt, ast.z3_ast);
+         }
+     }
+ 
+     pub fn maximize(&self, ast: &Ast<'ctx>) {
+         unsafe {
+             let guard = Z3_MUTEX.lock().unwrap();
+-            Z3_optimize_maximize(self.ctx.z3_ctx,
+-                                 self.z3_opt,
+-                                 ast.z3_ast);
++            Z3_optimize_maximize(self.ctx.z3_ctx, self.z3_opt, ast.z3_ast);
+         }
+     }
+ 
+     pub fn minimize(&self, ast: &Ast<'ctx>) {
+         unsafe {
+             let guard = Z3_MUTEX.lock().unwrap();
+-            Z3_optimize_minimize(self.ctx.z3_ctx,
+-                                 self.z3_opt,
+-                                 ast.z3_ast);
++            Z3_optimize_minimize(self.ctx.z3_ctx, self.z3_opt, ast.z3_ast);
+         }
+     }
+ 
+     pub fn check(&self) -> bool {
+         unsafe {
+             let guard = Z3_MUTEX.lock().unwrap();
+-            Z3_optimize_check(self.ctx.z3_ctx,
+-                              self.z3_opt) == Z3_L_TRUE
++            Z3_optimize_check(self.ctx.z3_ctx, self.z3_opt) == Z3_L_TRUE
+         }
+     }
+ 
+diff --git a/src/solver.rs b/src/solver.rs
+index e805031..19ec886 100644
+--- a/src/solver.rs
++++ b/src/solver.rs
+@@ -1,8 +1,8 @@
+ use z3_sys::*;
++use Ast;
+ use Context;
+-use Solver;
+ use Model;
+-use Ast;
++use Solver;
+ use Z3_MUTEX;
+ 
+ impl<'ctx> Solver<'ctx> {
+@@ -14,24 +14,28 @@ impl<'ctx> Solver<'ctx> {
+                 let s = Z3_mk_solver(ctx.z3_ctx);
+                 Z3_solver_inc_ref(ctx.z3_ctx, s);
+                 s
+-            }
++            },
+         }
+     }
+ 
+     pub fn assert(&self, ast: &Ast<'ctx>) {
+         unsafe {
+             let guard = Z3_MUTEX.lock().unwrap();
+-            Z3_solver_assert(self.ctx.z3_ctx,
+-                             self.z3_slv,
+-                             ast.z3_ast);
++            Z3_solver_assert(self.ctx.z3_ctx, self.z3_slv, ast.z3_ast);
+         }
+     }
+ 
+     pub fn check(&self) -> bool {
+         unsafe {
+             let guard = Z3_MUTEX.lock().unwrap();
+-            Z3_solver_check(self.ctx.z3_ctx,
+-                            self.z3_slv) == Z3_L_TRUE
++            Z3_solver_check(self.ctx.z3_ctx, self.z3_slv) == Z3_L_TRUE
++        }
++    }
++
++    pub fn check_unsat(&self) -> bool {
++        unsafe {
++            let guard = Z3_MUTEX.lock().unwrap();
++            Z3_solver_check(self.ctx.z3_ctx, self.z3_slv) == Z3_L_FALSE
+         }
+     }
+ 
+@@ -40,7 +44,6 @@ impl<'ctx> Solver<'ctx> {
+     }
+ }
+ 
+-
+ impl<'ctx> Drop for Solver<'ctx> {
+     fn drop(&mut self) {
+         unsafe {
+diff --git a/src/sort.rs b/src/sort.rs
+index 1a55c33..173351a 100644
+--- a/src/sort.rs
++++ b/src/sort.rs
+@@ -1,18 +1,17 @@
+ use z3_sys::*;
+ use Context;
+-use Symbol;
+ use Sort;
++use Symbol;
+ use Z3_MUTEX;
+ 
+ impl<'ctx> Sort<'ctx> {
+-
+     pub fn uninterpretd(ctx: &'ctx Context, sym: &Symbol<'ctx>) -> Sort<'ctx> {
+         Sort {
+             ctx: ctx,
+             z3_sort: unsafe {
+                 let guard = Z3_MUTEX.lock().unwrap();
+                 Z3_mk_uninterpreted_sort(ctx.z3_ctx, sym.z3_sym)
+-            }
++            },
+         }
+     }
+ 
+@@ -22,7 +21,7 @@ impl<'ctx> Sort<'ctx> {
+             z3_sort: unsafe {
+                 let guard = Z3_MUTEX.lock().unwrap();
+                 Z3_mk_bool_sort(ctx.z3_ctx)
+-            }
++            },
+         }
+     }
+ 
+@@ -32,7 +31,7 @@ impl<'ctx> Sort<'ctx> {
+             z3_sort: unsafe {
+                 let guard = Z3_MUTEX.lock().unwrap();
+                 Z3_mk_int_sort(ctx.z3_ctx)
+-            }
++            },
+         }
+     }
+ 
+@@ -42,7 +41,7 @@ impl<'ctx> Sort<'ctx> {
+             z3_sort: unsafe {
+                 let guard = Z3_MUTEX.lock().unwrap();
+                 Z3_mk_real_sort(ctx.z3_ctx)
+-            }
++            },
+         }
+     }
+ 
+@@ -52,19 +51,17 @@ impl<'ctx> Sort<'ctx> {
+             z3_sort: unsafe {
+                 let guard = Z3_MUTEX.lock().unwrap();
+                 Z3_mk_bv_sort(ctx.z3_ctx, sz as ::libc::c_uint)
+-            }
++            },
+         }
+     }
+ 
+-    pub fn array(ctx: &'ctx Context,
+-                 domain: &Sort<'ctx>,
+-                 range: &Sort<'ctx>) -> Sort<'ctx> {
++    pub fn array(ctx: &'ctx Context, domain: &Sort<'ctx>, range: &Sort<'ctx>) -> Sort<'ctx> {
+         Sort {
+             ctx: ctx,
+             z3_sort: unsafe {
+                 let guard = Z3_MUTEX.lock().unwrap();
+                 Z3_mk_array_sort(ctx.z3_ctx, domain.z3_sort, range.z3_sort)
+-            }
++            },
+         }
+     }
+ 
+@@ -74,8 +71,7 @@ impl<'ctx> Sort<'ctx> {
+             z3_sort: unsafe {
+                 let guard = Z3_MUTEX.lock().unwrap();
+                 Z3_mk_set_sort(ctx.z3_ctx, elt.z3_sort)
+-            }
++            },
+         }
+     }
+-
+ }
+diff --git a/src/symbol.rs b/src/symbol.rs
+index 5380211..a8b3cc0 100644
+--- a/src/symbol.rs
++++ b/src/symbol.rs
+@@ -1,8 +1,8 @@
++use std::ffi::CString;
+ use z3_sys::*;
+-use Symbol;
+ use Context;
++use Symbol;
+ use Z3_MUTEX;
+-use std::ffi::CString;
+ 
+ impl<'ctx> Symbol<'ctx> {
+     pub fn from_int(ctx: &Context, i: u32) -> Symbol {
+@@ -12,7 +12,7 @@ impl<'ctx> Symbol<'ctx> {
+             z3_sym: unsafe {
+                 let guard = Z3_MUTEX.lock().unwrap();
+                 Z3_mk_int_symbol(ctx.z3_ctx, i as ::libc::c_int)
+-            }
++            },
+         }
+     }
+ 
+@@ -25,7 +25,7 @@ impl<'ctx> Symbol<'ctx> {
+             z3_sym: unsafe {
+                 let guard = Z3_MUTEX.lock().unwrap();
+                 Z3_mk_string_symbol(ctx.z3_ctx, p)
+-            }
++            },
+         }
+     }
+ }
+diff --git a/tests/lib.rs b/tests/lib.rs
+index 24fce43..2e61785 100644
+--- a/tests/lib.rs
++++ b/tests/lib.rs
+@@ -69,4 +69,3 @@ fn test_solving_for_model() {
+     assert!(yv % 7 == 2);
+     assert!(xv + 2 > 7);
+ }
+-
+diff --git a/tests/semver_tests.rs b/tests/semver_tests.rs
+index 8010e38..9a1d6f1 100644
+--- a/tests/semver_tests.rs
++++ b/tests/semver_tests.rs
+@@ -4,27 +4,27 @@
+ #[macro_use]
+ extern crate log;
+ extern crate env_logger;
+-extern crate semver;
+ extern crate seer_z3 as z3;
++extern crate semver;
+ 
+-use z3::*;
+ use semver::{Version, VersionReq};
+ use std::collections::HashMap;
++use z3::*;
+ 
+ struct Spec {
+     vers: Version,
+-    reqs: HashMap<String, VersionReq>
++    reqs: HashMap<String, VersionReq>,
+ }
+ 
+ impl Spec {
+-    pub fn new(vers: &str, reqs: &[(&str,&str)]) -> Spec {
++    pub fn new(vers: &str, reqs: &[(&str, &str)]) -> Spec {
+         let mut rs = HashMap::new();
+         for &(p, r) in reqs {
+             rs.insert(p.to_string(), VersionReq::parse(r).unwrap());
+         }
+         Spec {
+             vers: Version::parse(vers).unwrap(),
+-            reqs: rs
++            reqs: rs,
+         }
+     }
+ }
+@@ -34,7 +34,7 @@ type SpecMap = HashMap<String, Vec<Spec>>;
+ fn get_version(sm: &SpecMap, pkg: &str, ver: usize) -> Option<Version> {
+     match sm.get(pkg) {
+         None => None,
+-        Some(ref specs) => Some(specs[ver].vers.clone())
++        Some(ref specs) => Some(specs[ver].vers.clone()),
+     }
+ }
+ 
+@@ -42,132 +42,135 @@ fn version_index(sm: &SpecMap, pkg: &str, ver: &str) -> Option<usize> {
+     let ver = Version::parse(ver).unwrap();
+     match sm.get(pkg) {
+         None => None,
+-        Some(ref specs) =>
+-            specs.iter().position(|spec| spec.vers == ver)
++        Some(ref specs) => specs.iter().position(|spec| spec.vers == ver),
+     }
+ }
+ 
+-fn first_version_req_index(sm: &SpecMap, pkg: &str,
+-                           req: &VersionReq) -> Option<usize> {
++fn first_version_req_index(sm: &SpecMap, pkg: &str, req: &VersionReq) -> Option<usize> {
+     match sm.get(pkg) {
+         None => None,
+-        Some(ref specs) =>
+-            specs.iter().position(|spec| req.matches(&spec.vers))
++        Some(ref specs) => specs.iter().position(|spec| req.matches(&spec.vers)),
+     }
+ }
+ 
+-fn last_version_req_index(sm: &SpecMap, pkg: &str,
+-                          req: &VersionReq) -> Option<usize> {
++fn last_version_req_index(sm: &SpecMap, pkg: &str, req: &VersionReq) -> Option<usize> {
+     match sm.get(pkg) {
+         None => None,
+-        Some(ref specs) =>
+-            specs.iter().rposition(|spec| req.matches(&spec.vers))
++        Some(ref specs) => specs.iter().rposition(|spec| req.matches(&spec.vers)),
+     }
+ }
+ 
+ #[test]
+ fn test_solve_simple_semver_example() {
+-
+     // This is a little example of solving version constraints the way cargo
+     // might someday want to. It uses the optimizer portion of Z3.
+     // see: https://github.com/rust-lang/cargo/issues/2064
+ 
+     let _ = env_logger::init();
+ 
+-    let mut smap : SpecMap = HashMap::new();
+-
+-    smap.insert("postgres".to_string(),
+-                vec![
+-                    ("0.1.0",&[]),
+-                    ("0.1.1",&[]),
+-                    ("0.1.2",&[]),
+-                    ("0.1.3",&[]),
+-                    ("0.2.0",&[]),
+-                    ("0.2.1",&[]),
+-                    ("0.2.2",&[]),
+-                    ("0.2.3",&[]),
+-                    ("0.2.4",&[]),
+-                    ("0.3.0",&[]),
+-                    ("0.4.0",&[]),
+-                    ("0.4.1",&[]),
+-                    ("0.4.2",&[]),
+-                    ("0.4.3",&[]),
+-                    ("0.4.4",&[]),
+-                    ("0.4.5",&[]),
+-                    ("0.4.6",&[]),
+-                    ("0.5.0",&[]),
+-                    ("0.5.1",&[]),
+-                    ("0.5.2",&[]),
+-                    ("0.5.3",&[]),
+-                    ("0.5.4",&[]),
+-                    ("0.5.5",&[]),
+-                    ("0.5.6",&[]),
+-                    ("0.6.0",&[]),
+-                    ("0.6.1",&[]),
+-                    ("0.6.2",&[]),
+-                    ("0.6.3",&[]),
+-                    ("0.6.4",&[]),
+-                    ("0.6.5",&[]),
+-                    ("0.7.0",&[]),
+-                    ("0.7.1",&[]),
+-                    ("0.7.2",&[]),
+-                    ("0.7.2",&[]),
+-                    ("0.7.3",&[]),
+-                    ("0.7.4",&[]),
+-                    ("0.7.5",&[]),
+-                    ("0.8.0",&[]),
+-                    ("0.8.1",&[]),
+-                    ("0.8.2",&[]),
+-                    ("0.8.3",&[]),
+-                    ("0.8.4",&[]),
+-                    ("0.8.5",&[]),
+-                    ("0.8.6",&[]),
+-                    ("0.8.7",&[]),
+-                    ("0.8.8",&[]),
+-                    ("0.8.9",&[]),
+-                    ("0.9.0",&[]),
+-                    ("0.9.1",&[]),
+-                    ("0.9.2",&[]),
+-                    ("0.9.3",&[]),
+-                    ("0.9.4",&[]),
+-                    ("0.9.5",&[]),
+-                    ("0.9.6",&[]),
+-                    ("0.10.0",&[]),
+-                    ("0.10.1",&[]),
+-                    ("0.10.2",&[])
+-                        ].iter().map(|&(v,r)| Spec::new(v,r)).collect());
+-
+-    smap.insert("r2d2-postgres".to_string(),
+-                vec![
+-                    ("0.2.0",&[("postgres", "^0.2")]),
+-                    ("0.2.1",&[("postgres", "^0.2")]),
+-                    ("0.3.0",&[("postgres", "^0.4")]),
+-                    ("0.3.1",&[("postgres", "^0.4")]),
+-                    ("0.4.0",&[("postgres", "^0.5")]),
+-                    ("0.5.0",&[("postgres", "^0.5")]),
+-                    ("0.6.0",&[("postgres", "^0.6")]),
+-                    ("0.7.0",&[("postgres", "^0.6")]),
+-                    ("0.8.0",&[("postgres", "^0.7")]),
+-                    ("0.9.0",&[("postgres", "^0.8")]),
+-                    ("0.9.1",&[("postgres", "^0.9")]),
+-                    ("0.9.2",&[("postgres", "^0.9")]),
+-                    ("0.9.3",&[("postgres", "^0.10")])
+-                        ].iter().map(|&(v,r)| Spec::new(v,r)).collect());
+-
++    let mut smap: SpecMap = HashMap::new();
++
++    smap.insert(
++        "postgres".to_string(),
++        vec![
++            ("0.1.0", &[]),
++            ("0.1.1", &[]),
++            ("0.1.2", &[]),
++            ("0.1.3", &[]),
++            ("0.2.0", &[]),
++            ("0.2.1", &[]),
++            ("0.2.2", &[]),
++            ("0.2.3", &[]),
++            ("0.2.4", &[]),
++            ("0.3.0", &[]),
++            ("0.4.0", &[]),
++            ("0.4.1", &[]),
++            ("0.4.2", &[]),
++            ("0.4.3", &[]),
++            ("0.4.4", &[]),
++            ("0.4.5", &[]),
++            ("0.4.6", &[]),
++            ("0.5.0", &[]),
++            ("0.5.1", &[]),
++            ("0.5.2", &[]),
++            ("0.5.3", &[]),
++            ("0.5.4", &[]),
++            ("0.5.5", &[]),
++            ("0.5.6", &[]),
++            ("0.6.0", &[]),
++            ("0.6.1", &[]),
++            ("0.6.2", &[]),
++            ("0.6.3", &[]),
++            ("0.6.4", &[]),
++            ("0.6.5", &[]),
++            ("0.7.0", &[]),
++            ("0.7.1", &[]),
++            ("0.7.2", &[]),
++            ("0.7.2", &[]),
++            ("0.7.3", &[]),
++            ("0.7.4", &[]),
++            ("0.7.5", &[]),
++            ("0.8.0", &[]),
++            ("0.8.1", &[]),
++            ("0.8.2", &[]),
++            ("0.8.3", &[]),
++            ("0.8.4", &[]),
++            ("0.8.5", &[]),
++            ("0.8.6", &[]),
++            ("0.8.7", &[]),
++            ("0.8.8", &[]),
++            ("0.8.9", &[]),
++            ("0.9.0", &[]),
++            ("0.9.1", &[]),
++            ("0.9.2", &[]),
++            ("0.9.3", &[]),
++            ("0.9.4", &[]),
++            ("0.9.5", &[]),
++            ("0.9.6", &[]),
++            ("0.10.0", &[]),
++            ("0.10.1", &[]),
++            ("0.10.2", &[]),
++        ]
++        .iter()
++        .map(|&(v, r)| Spec::new(v, r))
++        .collect(),
++    );
++
++    smap.insert(
++        "r2d2-postgres".to_string(),
++        vec![
++            ("0.2.0", &[("postgres", "^0.2")]),
++            ("0.2.1", &[("postgres", "^0.2")]),
++            ("0.3.0", &[("postgres", "^0.4")]),
++            ("0.3.1", &[("postgres", "^0.4")]),
++            ("0.4.0", &[("postgres", "^0.5")]),
++            ("0.5.0", &[("postgres", "^0.5")]),
++            ("0.6.0", &[("postgres", "^0.6")]),
++            ("0.7.0", &[("postgres", "^0.6")]),
++            ("0.8.0", &[("postgres", "^0.7")]),
++            ("0.9.0", &[("postgres", "^0.8")]),
++            ("0.9.1", &[("postgres", "^0.9")]),
++            ("0.9.2", &[("postgres", "^0.9")]),
++            ("0.9.3", &[("postgres", "^0.10")]),
++        ]
++        .iter()
++        .map(|&(v, r)| Spec::new(v, r))
++        .collect(),
++    );
+ 
+     let cfg = Config::new();
+     let ctx = Context::new(&cfg);
+     let opt = Optimize::new(&ctx);
+ 
+-    let mut root : HashMap<String, VersionReq> = HashMap::new();
+-    let mut asts : HashMap<String, Ast> = HashMap::new();
++    let mut root: HashMap<String, VersionReq> = HashMap::new();
++    let mut asts: HashMap<String, Ast> = HashMap::new();
+ 
+-    root.insert("postgres".to_string(),
+-                VersionReq::parse("0.9").unwrap());
+-
+-    root.insert("r2d2-postgres".to_string(),
+-                VersionReq::parse("0.9").unwrap());
++    root.insert("postgres".to_string(), VersionReq::parse("0.9").unwrap());
+ 
++    root.insert(
++        "r2d2-postgres".to_string(),
++        VersionReq::parse("0.9").unwrap(),
++    );
+ 
+     // Make a root Z3 Int constant for each pkg we're trying to solve for.
+     for (k, v) in &root {
+@@ -223,21 +226,39 @@ fn test_solve_simple_semver_example() {
+                 match first_version_req_index(&smap, r, req) {
+                     None => (),
+                     Some(low) => {
+-                        info!("Asserting: {} == #{} {} => {} >= #{} {}",
+-                              k, n, get_version(&smap, k, n as usize).unwrap(),
+-                              r, low, get_version(&smap, r, low as usize).unwrap());
+-                        opt.assert(&k_ast._eq(&ctx.from_u64(n as u64)).
+-                                   implies(&r_ast.ge(&ctx.from_u64(low as u64))))
++                        info!(
++                            "Asserting: {} == #{} {} => {} >= #{} {}",
++                            k,
++                            n,
++                            get_version(&smap, k, n as usize).unwrap(),
++                            r,
++                            low,
++                            get_version(&smap, r, low as usize).unwrap()
++                        );
++                        opt.assert(
++                            &k_ast
++                                ._eq(&ctx.from_u64(n as u64))
++                                .implies(&r_ast.ge(&ctx.from_u64(low as u64))),
++                        )
+                     }
+                 }
+                 match last_version_req_index(&smap, r, req) {
+                     None => (),
+                     Some(high) => {
+-                        info!("Asserting: {} == #{} {} => {} <= #{} {}",
+-                              k, n, get_version(&smap, k, n as usize).unwrap(),
+-                              r, high, get_version(&smap, r, high as usize).unwrap());
+-                        opt.assert(&k_ast._eq(&ctx.from_u64(n as u64)).
+-                                   implies(&r_ast.le(&ctx.from_u64(high as u64))))
++                        info!(
++                            "Asserting: {} == #{} {} => {} <= #{} {}",
++                            k,
++                            n,
++                            get_version(&smap, k, n as usize).unwrap(),
++                            r,
++                            high,
++                            get_version(&smap, r, high as usize).unwrap()
++                        );
++                        opt.assert(
++                            &k_ast
++                                ._eq(&ctx.from_u64(n as u64))
++                                .implies(&r_ast.le(&ctx.from_u64(high as u64))),
++                        )
+                     }
+                 }
+             }
+@@ -250,8 +271,12 @@ fn test_solve_simple_semver_example() {
+     for k in root.keys() {
+         let ast = asts.get(k).unwrap();
+         let idx = model.eval(&ast).unwrap().as_i64().unwrap();
+-        info!("solved: {}: #{} = {}",
+-              k, idx, get_version(&smap, k, idx as usize).unwrap());
++        info!(
++            "solved: {}: #{} = {}",
++            k,
++            idx,
++            get_version(&smap, k, idx as usize).unwrap()
++        );
+     }
+ 
+     let pg_a = asts.get("postgres").unwrap();
+@@ -260,10 +285,7 @@ fn test_solve_simple_semver_example() {
+     let pg_v = model.eval(&pg_a).unwrap().as_i64().unwrap() as usize;
+     let r2_v = model.eval(&r2_a).unwrap().as_i64().unwrap() as usize;
+ 
+-    assert!(get_version(&smap, "postgres", pg_v).unwrap() ==
+-            Version::parse("0.9.6").unwrap());
+-
+-    assert!(get_version(&smap, "r2d2-postgres", r2_v).unwrap() ==
+-            Version::parse("0.9.2").unwrap());
++    assert!(get_version(&smap, "postgres", pg_v).unwrap() == Version::parse("0.9.6").unwrap());
+ 
++    assert!(get_version(&smap, "r2d2-postgres", r2_v).unwrap() == Version::parse("0.9.2").unwrap());
+ }

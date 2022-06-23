@@ -1,0 +1,166 @@
+diff --git a/loki/obfuscator/vm_alu/src/alu/meta_alu.rs b/loki/obfuscator/vm_alu/src/alu/meta_alu.rs
+index 75b495f..937758a 100644
+--- a/loki/obfuscator/vm_alu/src/alu/meta_alu.rs
++++ b/loki/obfuscator/vm_alu/src/alu/meta_alu.rs
+@@ -25,7 +25,7 @@ impl MetaALU {
+         input_semantics: &Vec<SemanticsBlock>,
+         term_rewriter: &TermRewriter,
+     ) -> MetaALU {
+-        let (scheduler_map, alu_map) = Scheduler::schedule_keys(input_semantics);
++        let (scheduler_map, alu_map) = Scheduler::schedule_keys(input_semantics, workdir);
+ 
+         let mut keys = MetaALUKeys::new();
+ 
+diff --git a/loki/obfuscator/vm_alu/src/alu/scheduler.rs b/loki/obfuscator/vm_alu/src/alu/scheduler.rs
+index ea0ce73..cc43e4e 100644
+--- a/loki/obfuscator/vm_alu/src/alu/scheduler.rs
++++ b/loki/obfuscator/vm_alu/src/alu/scheduler.rs
+@@ -9,6 +9,8 @@ use serde::{Deserialize, Serialize};
+ use rand::prelude::*;
+ use rand::seq::SliceRandom;
+ use rand::thread_rng;
++use std::fs::File;
++use std::io::Write;
+ 
+ #[derive(Clone, Hash, Eq, PartialEq, Debug, Serialize, Deserialize)]
+ pub struct SchedulerIndex {
+@@ -75,15 +77,19 @@ impl SemanticsToSchedulerIndexMap {
+ pub struct Scheduler {}
+ 
+ impl Scheduler {
+-    pub fn schedule_keys(blocks: &Vec<SemanticsBlock>) -> (SchedulerMap, ALUSemanticsMap) {
++    pub fn schedule_keys(
++        blocks: &Vec<SemanticsBlock>,
++        workdir: &str,
++    ) -> (SchedulerMap, ALUSemanticsMap) {
+         match CONFIG.schedule_non_deterministic {
+-            true => Scheduler::schedule_keys_non_deterministic(blocks),
+-            false => Scheduler::schedule_keys_deterministic(blocks),
++            true => Scheduler::schedule_keys_non_deterministic(blocks, workdir),
++            false => Scheduler::schedule_keys_deterministic(blocks, workdir),
+         }
+     }
+ 
+     pub fn schedule_keys_deterministic(
+         blocks: &Vec<SemanticsBlock>,
++        _workdir: &str,
+     ) -> (SchedulerMap, ALUSemanticsMap) {
+         /* start by 1 */
+         let alu_indices: Vec<_> = (CONFIG.num_reserved_alu_handler..=CONFIG.num_alus)
+@@ -128,11 +134,14 @@ impl Scheduler {
+ 
+     pub fn schedule_keys_non_deterministic(
+         blocks: &Vec<SemanticsBlock>,
++        workdir: &str,
+     ) -> (SchedulerMap, ALUSemanticsMap) {
+         let mut scheduler_map = SchedulerMap::new();
+         let mut semantics_to_scheduler_index_map = SemanticsToSchedulerIndexMap::new();
+         let mut alu_map = ALUSemanticsMap::new();
+         let mut used_indices = HashSet::new();
++        let mut set = HashSet::new();
++        let mut output = String::new();
+ 
+         for (block_index, block) in blocks.iter().enumerate() {
+             /* map semantics block to alu and key */
+@@ -142,9 +151,24 @@ impl Scheduler {
+                 &mut semantics_to_scheduler_index_map,
+                 &mut used_indices,
+             );
++
++            if !set.contains(&block.expr) {
++                let line = format!(
++                    "{:?};{};{}\n",
++                    block.expr,
++                    block.expr.to_string(),
++                    block.expr.len()
++                );
++                output.push_str(&line);
++                set.insert(block.expr.clone());
++            }
++
+             scheduler_map.map.insert(block_index, scheduler_index);
+         }
+ 
++        let file_name = format!("{}/superhandler_data.txt", workdir);
++        let mut file = File::create(file_name).unwrap();
++        write!(&mut file, "{}", output).unwrap();
+         (scheduler_map, alu_map)
+     }
+ 
+diff --git a/loki/obfuscator/vm_alu/src/main.rs b/loki/obfuscator/vm_alu/src/main.rs
+index 8fd16dc..ba8b86e 100644
+--- a/loki/obfuscator/vm_alu/src/main.rs
++++ b/loki/obfuscator/vm_alu/src/main.rs
+@@ -1,12 +1,8 @@
+ use rayon::prelude::*;
+ use std::fs::create_dir_all;
+-use std::time::Instant;
+-use vm_alu::alu::meta_alu::MetaALU;
+-use vm_alu::bytecode::translator::ByteCodeTranslator;
++use vm_alu::alu::scheduler::Scheduler;
+ use vm_alu::config::CONFIG;
+-use vm_alu::emulator::emulator::Verificator;
+ use vm_alu::llvm::llvm_input_data::LLVMInputData;
+-use vm_alu::term_rewriting::term_rewriter::TermRewriter;
+ 
+ fn generate_workdir(index: usize) -> String {
+     let workdir = format!("{}/instances/vm_alu{:03}", CONFIG.eval_dir, index);
+@@ -22,50 +18,13 @@ fn main() {
+     create_dir_all(format!("{}/instances", CONFIG.eval_dir))
+         .expect("Could not create directory instances.");
+ 
+-    let term_rewriter = TermRewriter::new();
++    (0..CONFIG.num_instances).into_par_iter().for_each(|index| {
++        let workdir = generate_workdir(index);
++        let llvm_input_data = LLVMInputData::from_file(
++            &workdir,
++            &format!("{}/src/lifted_input.txt", CONFIG.eval_dir),
++        );
+ 
+-    let num_cpu = 52;
+-
+-    let iterator: Vec<_> = (0..CONFIG.num_instances).into_iter().collect();
+-
+-    for chunk in iterator.chunks(num_cpu) {
+-        chunk.into_par_iter().for_each(|index| {
+-            let workdir = generate_workdir(*index);
+-            let build_time = Instant::now();
+-
+-            let llvm_input_data = LLVMInputData::from_file(
+-                &workdir,
+-                &format!("{}/src/lifted_input.txt", CONFIG.eval_dir),
+-            );
+-
+-            let meta_alu = MetaALU::new(&workdir, &llvm_input_data.blocks, &term_rewriter);
+-
+-            let (bytecode, arguments) = ByteCodeTranslator::process_data(
+-                &workdir,
+-                &llvm_input_data,
+-                meta_alu.keys,
+-                meta_alu.scheduler_map,
+-            );
+-
+-            let build_time_seconds = build_time.elapsed().as_secs_f64();
+-            let verification_time = Instant::now();
+-
+-            if CONFIG.verification_iterations > 0 && !Verificator::verify_transformation(
+-                &meta_alu.alu_semantics,
+-                &bytecode,
+-                &arguments,
+-                &llvm_input_data,
+-                CONFIG.verification_iterations,
+-            ) {
+-                assert!(false, "Verification failed!");
+-            }
+-            let file_name = format!("{}/timings.txt", workdir);
+-            let content = format!(
+-                "Build time: {},\nVerification time: {},\n",
+-                build_time_seconds,
+-                verification_time.elapsed().as_secs_f64()
+-            );
+-            std::fs::write(file_name, content).expect("Unable to write timings file");
+-        })
+-    }
++        let (_, __) = Scheduler::schedule_keys(&llvm_input_data.blocks, &workdir);
++    });
+ }

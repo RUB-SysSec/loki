@@ -1,0 +1,74 @@
+stages:
+    - build
+
+variables:
+    GIT_SUBMODULE_STRATEGY: normal
+
+.build-common:
+    stage: build
+    except:
+        - schedules
+
+.build-docker:
+    extends: .build-common
+    tags:
+        - docker
+        - amd64
+
+build-debian:
+    extends: .build-docker
+    image: registry.videolan.org/vlc-debian-unstable:20210315112333
+    script:
+        - autoreconf -fisv
+        - mkdir build
+        - cd build
+        - ../configure
+        - make -j $(getconf _NPROCESSORS_ONLN)
+
+build-macos:
+    extends: .build-common
+    tags:
+        - catalina
+        - amd64
+    script:
+        - autoreconf -fisv
+        - mkdir build
+        - cd build
+        - ../configure
+        - make -j $(getconf _NPROCESSORS_ONLN)
+
+build-win64:
+    extends: .build-docker
+    image: registry.videolan.org/vlc-debian-win64:20201106143728
+    script:
+        - autoreconf -fisv
+        - mkdir build
+        - cd build
+        - ../configure --host=x86_64-w64-mingw32
+        - make -j $(getconf _NPROCESSORS_ONLN)
+
+build-win32:
+    extends: .build-docker
+    image: registry.videolan.org/vlc-debian-win32:20201106141924
+    script:
+        - autoreconf -fisv
+        - mkdir build
+        - cd build
+        - ../configure --host=i686-w64-mingw32
+        - make -j $(getconf _NPROCESSORS_ONLN)
+
+pages:
+    extends: .build-docker
+    image:
+        name: registry.videolan.org/vlc-debian-unstable:20210315112333
+    script:
+        - autoreconf -fisv
+        - ./configure
+        - make apidoc
+        - mv doc/html public
+    artifacts:
+        paths:
+            - public
+    only:
+        - schedules
+    except:

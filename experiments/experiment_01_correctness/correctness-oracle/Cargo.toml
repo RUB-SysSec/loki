@@ -1,0 +1,17 @@
+[package]
+name = "correctness-oracle"
+authors = ["Moritz Schloegel <moritz.schloegel@rub.de>", "Tim Blazytko <tim.blazytko@rub.de>"]
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "correctness_oracle"
+crate-type = ["cdylib"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+ctor = "~0"
+libc = "~0"
+serde = { version = "~1", features = [ "derive" ] }
+serde_json = "~1"
