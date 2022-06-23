@@ -1,6 +1,17 @@
 # Loki: Hardening Code Obfuscation Against Automated Attacks
 
-Loki is an academic obfuscator prototype developed to showcase new VM handler hardening techniques.
+Loki is an academic obfuscator prototype developed to showcase novel VM handler hardening techniques.
+
+It is based on our paper:
+
+```
+@inproceedings{blazytko2019grimoire,
+    author = {Moritz Schl{\"o}gel and Tim Blazytko and Moritz Contag and Cornelius Aschermann and Julius Basler and Thorsten Holz and Ali Abbasi},
+    title =  {{LOKI}: Hardening Code Obfuscation Against Automated Attacks},
+    year = {2022},
+    booktitle = {USENIX Security Symposium} 
+}
+```
 
 # Installation
 
