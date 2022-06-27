@@ -13,9 +13,10 @@ To speed up that process, we provide for your convenience an alternative: Sample
 ### i) Sample MBA formulas
 To sample 10 MBA formulas per operation (`+ - & | ^`) and recursive rewriting depth (i.e., how often Loki applied MBAs recursively), run:
 ```
-python3 sample_mbas.py 10 /home/user/evaluation/experiment_10_mba_formulas/mba_formulas
+mkdir -p /home/user/evaluation/experiment_10_mba_formulas/
+python3 sample_mba_formulas.py 10 /home/user/evaluation/experiment_10_mba_formulas/mba_formulas
 ```
-
+_Expected time (104 CPU cores): 1 second_
 
 ### ii) Generate new MBA formulas
 
@@ -55,27 +56,34 @@ After creating MBA formulas, we can check how many of them can be simplified by 
 Run: 
 ```
 mkdir -p /home/user/evaluation/experiment_10_mba_formulas/experiment_data/
+
 cd deobfuscation_tools/lokiattack
-python3 run_lokiattack.py -o /home/user/evaluation/experiment_10_mba_formulas/experiment_data
+python3 run_lokiattack.py -o /home/user/evaluation/experiment_10_mba_formulas/experiment_data /home/user/evaluation/experiment_10_mba_formulas/mba_formulas/*
+cd -
 ```
+_Expected time (104 CPU cores): 2 minutes_
+
 
 ### ii) MBA-Blast
 Run:
 ```
 cd deobfuscation_tools/mba_blast
 python3 -m pip install --user numpy sympy
-python3 run_mba_blast.py -o /home/user/evaluation/experiment_10_mba_formulas/experiment_data
-python3 -m pip uninstall numpy sympy
+python3 run_mba_blast.py -o /home/user/evaluation/experiment_10_mba_formulas/experiment_data /home/user/evaluation/experiment_10_mba_formulas/mba_formulas/*
+python3 -m pip uninstall -y numpy sympy
+cd -
 ```
+_Expected time (104 CPU cores): 15 minutes_
 
 ### iii) SSPAM
 Run:
 ```
 cd deobfuscation_tools/sspam
-/home/user/.pyenv/versions/3.6.8/bin/python -m pip install --user sympy==0.7.4 astunparse~=1.3
-/home/user/.pyenv/versions/3.6.8/bin/python run_sspam.py -o /home/user/evaluation/experiment_10_mba_formulas/experiment_data
-/home/user/.pyenv/versions/3.6.8/bin/python -m pip uninstall sympy astunparse
+/home/user/.pyenv/versions/3.6.8/bin/python -m pip install --user sympy==0.7.4 astunparse~=1.3 z3-solver==4.8.7
+/home/user/.pyenv/versions/3.6.8/bin/python run_sspam.py -o /home/user/evaluation/experiment_10_mba_formulas/experiment_data /home/user/evaluation/experiment_10_mba_formulas/mba_formulas/*
+cd -
 ```
+_Expected time (104 CPU cores): 1 hour 10 minutes_
 
 Note that we use `/home/user/.pyenv/versions/3.6.8/bin/python`, as SSPAM does not work with newer Python versions.
 
@@ -88,9 +96,9 @@ Unfortunately, the authors of the paper have unpublished NeuReduce and deleted t
 ## 3. Draw conclusions
 Each of the tools creates /home/user/evaluation/experiment_10_mba_formulas/experiment_data/$TOOL_stats.json files. For analysis, run:
 ```
-python3 -m pip install --user numpy scipy matplotlib
-python3 eval_mba_fomrula_results.py /home/user/evaluaton/experiment_10_mba_formulas/experiment_data
+python3 eval_mba_formula_results.py /home/user/evaluation/experiment_10_mba_formulas/experiment_data
 ```
+_Expected time (104 CPU cores): 1 second_
 
 
 Alternatively, you can create a plot with:
@@ -98,4 +106,6 @@ Alternatively, you can create a plot with:
 python3 -m pip install --user numpy scipy matplotlib
 python3 plot_mba_formula.py /home/user/evaluaton/experiment_10_mba_formulas/experiment_data avg
 ```
-This will print the graph from the paper.
+_Expected time (104 CPU cores): 2 seconds_
+
+This will print the graph from the paper. You can compare the data or graph to the plot in Figure 3, page 13, "Deobufscation of 1,000 artifical MBAs" in the paper. Given the different numbers of formulas evaluated (1,000 in paper vs 10 for faster reproduction), they may slightly differ but should clearly depict the same trend.

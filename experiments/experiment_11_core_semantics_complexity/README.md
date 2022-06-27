@@ -20,27 +20,26 @@ To build the binaries, run the following:
 ```
 # apply patch
 cd ../../loki/obfuscator
+git checkout .
 git apply core_semantics_complexity.patch
 # build patched binary
 cargo build --release
+cd ..
 
 # create binaries
-cd -
 mkdir -p /home/user/evaluation/experiment_11_complexity_of_core_semantics
 # first set without superoperators
-./obfuscate.py /home/user/evaluation/experiment_11_complexity_of_core_semantics/binaries_no_superoperator --instances 1000 --allow aes_
-encrypt des_encrypt md5 sha1 rc4 --verification-rounds 0 --no-generate-vm --nomba --nosuperopt
+python3 obfuscate.py /home/user/evaluation/experiment_11_complexity_of_core_semantics/binaries_no_superoperator --instances 10 --allow aes_encrypt des_encrypt md5 sha1 rc4 --verification-rounds 0 --no-generate-vm --nomba --nosuperopt
 
 # second set with superoperators
-./obfuscate.py /home/user/evaluation/experiment_11_complexity_of_core_semantics/binaries_no_superoperator --instances 1000 --allow aes_
-encrypt des_encrypt md5 sha1 rc4 --verification-rounds 0 --no-generate-vm --nomba
+python3 obfuscate.py /home/user/evaluation/experiment_11_complexity_of_core_semantics/binaries_with_superoperator --instances 10 --allow aes_encrypt des_encrypt md5 sha1 rc4 --verification-rounds 0 --no-generate-vm --nomba
 
 # undo patch
-cd ../../loki/obfuscator
+cd obfuscator
 git checkout .
-cd -
+cd ../../experiments/experiment_11_core_semantics_complexity
 ```
-
+_Expected time (104 CPU cores): 5 minutes_
 
 ## 2. Run Experiment
 We can then run the eval_complexity script with the two directories containing data for when *not* using superoperators and when using superoperators:
@@ -48,4 +47,11 @@ We can then run the eval_complexity script with the two directories containing d
 python3 eval_complexity.py /home/user/evaluation/experiment_11_complexity_of_core_semantics/binaries_no_superoperator /home/user/evaluation/experiment_11_complexity_of_core_semantics/binaries_with_superoperator
 
 ```
-This will also directly print some statistics (and sort-of an ASCII figure).
+_Expected time (104 CPU cores): 1 second_
+
+This will print some statistics (and sort-of an ASCII figure). You can compare these values to Figure 4, page 14, "Complexity of Generated Handlers" in our paper. While individual shapes may vary, the interesting aspect is that without superoperators, the highest observable is 5 (with peaks at depth 3 and depth 5), while our superoperators move the spectrum to higher depths (with the hightest peak at depth 9).
+
+Alternatively, you can create a plot:
+```
+python3 plot_complexity.py complexity_data.txt
+```

@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import List, Optional
 
 
-NUM_INSTANCES = 10
+NUM_INSTANCES = 20
 NUM_CPUS: Optional[int] = os.cpu_count()
 assert NUM_CPUS is not None, "os.cpu_count() returned None"
 

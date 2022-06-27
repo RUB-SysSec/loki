@@ -245,25 +245,26 @@ def run_experiment(number_of_variables, expression_depth, number_of_expressions,
     results_data["average_time"] = total_time / number_of_expressions
 
     return results_data
-    
+
 # check stdin
-if len(sys.argv) < 4:
-    print("[*] Syntax: <number of variables> <expression depth> <output file>")
+if len(sys.argv) < 5:
+    print("[*] Syntax: <number of variables> <expression depth> <number of expressions> <output file>")
     sys.exit(0)
 
 # variables and expression depth
 number_of_variables = int(sys.argv[1])
 expression_depth = int(sys.argv[2])
+# paper uses 10_000 as number_of_expressions
+number_of_expressions = int(sys.argv[3])
 
 # output file
-output_file = sys.argv[3]
+output_file = sys.argv[4]
 
 # initial configuration
 uct_scalar = 1.5
 mcts_iterations = 50000
 io_samples = 20
 playout_depth = 0 
-number_of_expressions = 10000
 
 # initialise
 data = OrderedDict()

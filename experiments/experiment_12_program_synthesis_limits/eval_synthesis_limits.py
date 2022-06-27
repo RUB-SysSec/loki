@@ -5,7 +5,7 @@ Experiment 12 Limits of Program Synthesis
 """
 import json
 import os
-from argparse import ArgumentParser, Namespace
+from argparse import ArgumentParser
 from pathlib import Path
 from typing import Dict, Optional
 
@@ -20,7 +20,9 @@ def main(path: Path) -> None:
             content = json.load(f)
         results = content["results"]
         assert results["success"] + results["non_success"] == results["number_of_tasks"]
-        assert results["number_of_tasks"] == 10_000
+        # paper has 10_000 expressions per layer, proposed reproduction 100
+        if results["number_of_tasks"] not in (100, 10_000):
+            print(f"[!] Number of tasks: {results['number_of_tasks']}")
         data[content["expression_depth"]] = results["success"]
     for k in sorted(list(data.keys())):
         v = data[k]
@@ -29,6 +31,6 @@ def main(path: Path) -> None:
 
 
 if __name__ == "__main__":
-    parser = ArgumentParser(description="Run experiment 09 MBA diversity")
+    parser = ArgumentParser(description="Evaluate experiment 9 synthesis limits results")
     parser.add_argument("path", type=Path, help="Path to directory containing synthesis limits files")
     main(parser.parse_args().path)

@@ -1,7 +1,7 @@
-diff --git a/vm_alu/src/llvm/llvm_input_data.rs b/vm_alu/src/llvm/llvm_input_data.rs
+diff --git a/loki/obfuscator/vm_alu/src/llvm/llvm_input_data.rs b/vm_alu/src/llvm/llvm_input_data.rs
 index 36897dc..d09614b 100644
---- a/vm_alu/src/llvm/llvm_input_data.rs
-+++ b/vm_alu/src/llvm/llvm_input_data.rs
+--- a/loki/obfuscator/vm_alu/src/llvm/llvm_input_data.rs
++++ b/loki/obfuscator/vm_alu/src/llvm/llvm_input_data.rs
 @@ -1,9 +1,7 @@
  use crate::alu::semantics_builder::SemanticsBlock;
 -use crate::alu::superoptimizer::SuperOptimizer;

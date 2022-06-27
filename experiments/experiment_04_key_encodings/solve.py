@@ -10,7 +10,7 @@ from z3 import Solver, BitVec, BitVecVal, sat, unsat
 from z3 import *
 from argparse import ArgumentParser
 
-TIMEOUT= 5 * 60 * 1000
+TIMEOUT= 60 * 60 * 1000
 
 
 def main(path: Path) -> None:
@@ -45,13 +45,13 @@ def main(path: Path) -> None:
     while not success:
 
         # set solver timeout
-        solver.set("timeout",TIMEOUT - int(solving_time))
+        solver.set("timeout", TIMEOUT - int(solving_time))
 
         # measure z3 solving time
         start_time = time.time()
         checked = solver.check()
         duration = time.time() - start_time
-        solving_time  += (duration * 1000)
+        solving_time += (duration * 1000)
 
         # check if key has been found
         if checked == sat:
@@ -60,7 +60,7 @@ def main(path: Path) -> None:
 
             # reset equivalence solver
             equivalence_solver.reset()
-            equivalence_solver.set("timeout",TIMEOUT - int(solving_time))
+            equivalence_solver.set("timeout", TIMEOUT - int(solving_time))
 
             # add constraints
             equivalence_solver.add(f != g)

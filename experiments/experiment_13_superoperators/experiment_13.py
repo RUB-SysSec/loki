@@ -13,7 +13,7 @@ from typing import List, Optional
 
 
 NUM_INSTANCES = 10
-NUM_HANDLER_TO_SAMPLE = 100
+NUM_HANDLER_TO_SAMPLE = 1000
 NUM_CPUS: Optional[int] = os.cpu_count()
 assert NUM_CPUS is not None, "os.cpu_count() returned None"
 

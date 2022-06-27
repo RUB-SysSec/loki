@@ -128,7 +128,9 @@ def plot(data: Dict[str, Dict[str, List[Tuple[int, int]]]], op: str) -> None:
     ax.legend(loc="upper right")
 
     fig.tight_layout()
-    plt.savefig(f"./plot_{op}.{FILE_TYPE}")
+    plot_file_name = f"./plot_{op}.{FILE_TYPE}"
+    print(f"Saving plot to {plot_file_name}")
+    plt.savefig(plot_file_name)
     plt.close()
 
 

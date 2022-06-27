@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-# pylint: disable = invalid-name
+
 """
-Evaluation results of superhandlers: Determine number of handlers per layer over 1k instances
+Evaluation results of core semantics' complexity (with and without superoperators):
+Determine number of handlers per layer over 1k instances
 """
 
 from argparse import ArgumentParser
@@ -12,13 +13,11 @@ import logging
 import json
 
 
-
 logger = logging.getLogger("ComplexityEval")
 TIMEOUT = 1800
 
 LAST_LAYER = 20
 NUM_INSTANCES = 10
-
 
 
 def setup_logging() -> None:
@@ -82,6 +81,7 @@ def print_stats(data: Dict[str, List[Dict[int, int]]]) -> None:
         tcnt = float(layers_superops.get(i, 0)) / NUM_INSTANCES
         print(f"{i:>2}: {tcnt:>4} " + "#" * round(tcnt))
 
+
 def main(path_no_superopt: Path, path_with_superopt: Path) -> None:
     """Main"""
     start_time = time()
@@ -102,7 +102,7 @@ def main(path_no_superopt: Path, path_with_superopt: Path) -> None:
             assert len(all_dicts) == NUM_INSTANCES, "Failed to parse all files"
             # print(all_dicts)
             all_targets[prefix] = all_dicts
-    with open("superhandler_data.txt", "w") as outfile:
+    with open("complexity_data.txt", "w", encoding="utf-8") as outfile:
         json.dump(all_targets, outfile)
     print_stats(all_targets)
     logger.info(f"Done in {round(time() - start_time, 2)}s")

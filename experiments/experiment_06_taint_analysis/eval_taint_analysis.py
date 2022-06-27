@@ -5,7 +5,7 @@ Evaluate the results from experiment 5 taint analysis (Print some statistics!)
 
 import sys
 if len(sys.argv) < 2:
-    print("[*] Syntax: {} <file>".format(sys.argv[0]))
+    print(f"[*] Syntax: {sys.argv[0]} <file>")
     exit(0)
 file_path = sys.argv[1]
 
@@ -31,7 +31,6 @@ for line in open(file_path):
     num_tainted_instructions = int(args[3])
     num_ir_paths = int(args[4])
     time = float(args[5])
-    
 
     num_tasks += 1
     total_num_asm_instructions += num_asm_instructions
@@ -41,7 +40,8 @@ for line in open(file_path):
     total_time += time
 
 
-    
+percentage_tainted = 100 * ((total_num_tainted_instructions / num_tasks) / (total_num_visited_instructions / num_tasks))
+percentage_untainted = 100 - percentage_tainted
 
 print(f"number of tasks: {num_tasks}")
 print(f"total time: {total_time}")
@@ -50,4 +50,5 @@ print(f"avg #IR paths: {total_ir_paths / num_tasks}")
 print(f"avg #disassembled asm instructions: {total_num_asm_instructions / num_tasks}")
 print(f"avg #visited instructions: {total_num_visited_instructions / num_tasks}")
 print(f"avg #tainted instructions: {total_num_tainted_instructions / num_tasks}")
-print(f"avg %tainted instructions: {100 * ((total_num_tainted_instructions / num_tasks) / (total_num_visited_instructions / num_tasks))}")
+print(f"avg %tainted instructions: {round(percentage_tainted, 2)}%")
+print(f"avg %un-tainted instructions: {round(percentage_untainted, 2)}%")

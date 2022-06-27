@@ -1,2 +1,4 @@
 obj-intel64
 .clangd
+pin
+pin-*

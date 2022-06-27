@@ -2,12 +2,25 @@
 
 set -eu
 
-git clone https://github.com/Z3Prover/z3.git
+if [ ! -d z3 ]; then
+    git clone https://github.com/Z3Prover/z3.git
+else
+    echo "Directory z3 already exists. Not cloning.."
+fi
+
 cd z3
 git checkout z3-4.8.7
-python scripts/mk_make.py --python
+
+# install with python to pyenv dir
+python3 scripts/mk_make.py --python
 cd build
 make -j
 sudo make install
-sudo ln -s /home/user/loki/loki/z3/build/libz3.so /usr/lib/x86_64-linux-gnu/libz3.so
 
+# install without python to /usr/local
+cd ..
+rm -r build
+python3 scripts/mk_make.py --prefix=/usr
+cd build
+make -j
+sudo make install

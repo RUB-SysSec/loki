@@ -10,14 +10,13 @@ import logging
 import os
 import random
 import subprocess
-from argparse import ArgumentParser
-from functools import partial
+from argparse import ArgumentParser, Namespace
 from multiprocessing import Pool
 from pathlib import Path
 from time import time
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, Iterator, List, Tuple, TypeVar
 
-from bytecode_tracer import bytecode_trace, BytecodeEntry
+from bytecode_tracer import bytecode_trace
 
 
 logger = logging.getLogger("SubSetBytecodeVerifier")
@@ -25,6 +24,7 @@ PIN_TOOL = Path("./obj-intel64/fn_tracer.so").resolve()
 PIN_BINARY = Path("./pin/pin").resolve()
 
 INSTANCE_SUBSET = 10
+T = TypeVar("T")
 
 TESTCASES = [
     "aes_encrypt",
@@ -118,45 +118,62 @@ def verify_bytecode(task: Tuple[Path, List[Tuple[List[int], List[int]]], int]) -
     return 0
 
 
-def main(workdirs: Path, inputs_file: Path, allowlist: List[str]) -> None:
+def chunks(lst: List[T], k: int) -> Iterator[List[T]]:
+    sz = round(len(lst) / k)
+    for i in range(k - 1):
+        yield lst[i*sz:(i + 1) * sz]
+    yield lst[(k - 1) * sz:]
+
+
+def main(args: Namespace) -> None:
     """
         1. Identify testcases
         2. For each testcase, locate all instances
         3. For each instance, verify its bytecode is executed correctly
     """
+    workdirs = args.path / "workdirs"
+    # : Path, inputs_file: Path, allowlist: List[str], subset_size: Optional[int]
     start_time = time()
 
     assert PIN_TOOL.exists(), f"Failed to find our pintool at {PIN_TOOL.as_posix()}"
     assert PIN_BINARY.exists(), f"Failed to find pin binary at {PIN_BINARY.as_posix()}"
 
-    assert inputs_file.exists(), f"Failed to find inputs file at {inputs_file.as_posix()}"
+    assert args.inputs_file.exists(), f"Failed to find inputs file at {args.inputs_file.as_posix()}"
 
     testcases = [tc for tc in workdirs.glob("*")
-                    if len(allowlist) == 0 or tc.name in allowlist]
+                    if len(args.allowlist) == 0 or tc.name in args.allowlist]
 
-    with open(inputs_file, "r", encoding="utf-8") as f:
+    with open(args.inputs_file, "r", encoding="utf-8") as f:
         data = json.load(f)
 
-    subsets = len(data) 
-    #TODO: pass subset identifier
     inputs: List[Tuple[List[int], List[int]]] = [(d["input_1"], d["input_2"]) for d in data]
 
-    input_chunks = [] 
-    for i in range(9):
-        input_chunks.append(inputs[113407*i : 113407*(i+1)])
-    input_chunks.append(inputs[113407*9:])
+    if args.num_inputs:
+        logger.info(f"Sampling inputs subset of {args.num_inputs} inputs")
+        assert args.num_inputs <= len(inputs), \
+                f"Input subset of {args.num_inputs} is larger than number of inputs with {len(inputs)}"
+        inputs = random.sample(inputs, args.num_inputs)
+        assert len(inputs) == args.num_inputs, f"Expected {args.num_inputs} inputs, found {len(inputs)}"
+
+    # we have args.num_jobs cores, which need to process args.subset_size instances
+    input_chunks = chunks(inputs, args.num_jobs)
 
     failed: Dict[str, int] = {}
     for (i, testcase) in enumerate(testcases):
         logger.info(f"Processing {testcase.name}")
-        instances = list((testcase / "instances").glob("vm_alu*"))
-        assert len(instances) == 1000, f"Expected 1k instances, found {len(instances)}"
+        instances: List[Path] = list((testcase / "instances").glob("vm_alu*"))
+        logger.info(f"Found {len(instances)} instances")
 
-        logger.info(f"Sampling subset of {INSTANCE_SUBSET} instances")
-        instances = random.sample(instances, INSTANCE_SUBSET)
-        assert len(instances) == INSTANCE_SUBSET, f"Expected {INSTANCE_SUBSET} instances, found {len(instances)}"
+        # sample subset if specified by user
+        if args.subset_size is not None:
+            logger.info(f"Sampling instance subset of {args.subset_size} instances")
+            assert args.subset_size <= len(instances), \
+                    f"Instance subset of {args.subset_size} is larger than set with {len(instances)}"
 
-        tasks: List[Tuple[Path, List[Tuple[List[int], List[int], int]]]] = []
+            instances = random.sample(instances, args.subset_size)
+            assert len(instances) == args.subset_size, f"Expected {args.subset_size} instances, found {len(instances)}"
+
+        tasks: List[Tuple[Path, List[Tuple[List[int], List[int]]], int]] = []
         for instance in instances:
             for (i, chunk) in enumerate(input_chunks):
                 tasks.append((instance, chunk, i))
@@ -188,7 +205,7 @@ if __name__ == "__main__":
         description="Verify obf_exe instances execute bytecode"
     )
     parser.add_argument(
-        "path", nargs=1, help="path to evaluation workdirs directory"
+        "path", type=Path, help="path to evaluation workdirs directory"
     )
     parser.add_argument(
         "-i", "--inputs-file", dest="inputs_file", type=Path, required=True,
@@ -198,8 +215,16 @@ if __name__ == "__main__":
         "--only", dest="allowlist", action="store", nargs="+", default=[],
         help="only run specific tests"
     )
-    args = parser.parse_args() # pylint: disable=invalid-name
+    parser.add_argument(
+        "--instance-subset-size", dest="subset_size", type=int, default=None,
+        help="How many instances to run (if not set, all are tested)"
+    )
+    parser.add_argument(
+        "--max-processes", dest="num_jobs", type=int, default=os.cpu_count(), help="Number of parallel jobs"
+    )
+    parser.add_argument("--input-subset-size", dest="num_inputs", type=int, default=None,
+        help="Sample a subset of N inputs that are tested (if default=None, all inputs are traced)"
+    )
 
-    target_path = Path(args.path[0]).resolve() # pylint: disable = invalid-name
     setup_logging()
-    main(target_path / "workdirs", args.inputs_file, args.allowlist)
+    main(parser.parse_args())

@@ -13,6 +13,7 @@ from typing import List, Optional
 
 
 DEFAULT_MAX_DEPTH = 20
+DEFAULT_NUM_EXPRESSIONS = 100
 DATA_DIR = Path("/home/user/evaluation/experiment_12_synthesis_limits")
 
 NUM_CPUS: Optional[int] = os.cpu_count()
@@ -48,10 +49,11 @@ def run_cmd(cmd: List[str], cwd: Path) -> None:
     print(p.stdout.decode())
 
 
-def run_experiment(depth: int) -> None:
+def run_experiment(depth: int, num_expressions: int) -> None:
     num_vars = depth if depth % 2 != 0 else depth - 1
     cmd = [
-        "python3", EVAL_SCRIPT.as_posix(), str(num_vars), str(depth), (DATA_DIR / f"depth_{depth}.json").as_posix()
+        "python3", EVAL_SCRIPT.as_posix(), str(num_vars), str(depth), str(num_expressions),
+        (DATA_DIR / f"depth_{depth}.json").as_posix()
     ]
     cwd = Path("../../lokiattack").resolve()
     run_cmd(cmd, cwd)
@@ -63,15 +65,21 @@ def main(args: Namespace) -> None:
     for depth in range(1, args.depth+1):
         start = time.time()
         logger.debug(f"Running for depth {depth}")
-        run_experiment(depth)
+        run_experiment(depth, args.num_expressions)
         logger.debug(f"Depth {depth} done in {round(time.time() - start, 2)}s")
 
 
 if __name__ == "__main__":
     parser = ArgumentParser(description="Run experiment 12 limits of program synthesis")
     parser.add_argument("--depth", type=int, default=DEFAULT_MAX_DEPTH, help="Depth until which to run experiment")
-    parser.add_argument("--log-level", dest="log_level", action="store", type=int, default=1,
-                        help="Loglevel (1 = Debug, 2 = Info, 3 = Warning, 4 = Error)")
+    parser.add_argument(
+        "--num-expressions", type=int, default=DEFAULT_NUM_EXPRESSIONS,
+        help="Number of expressions to use for synthesis for each depth (paper: 10000, default AE: 100)"
+    )
+    parser.add_argument(
+        "--log-level", dest="log_level", action="store", type=int, default=1,
+        help="Loglevel (1 = Debug, 2 = Info, 3 = Warning, 4 = Error)"
+    )
     cargs = parser.parse_args()
 
     setup_logging(cargs.log_level * 10)

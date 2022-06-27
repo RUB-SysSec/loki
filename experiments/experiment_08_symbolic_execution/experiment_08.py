@@ -26,8 +26,8 @@ PATCH = Path("../../loki/obfuscator/syntactic_simplification_binaries.patch").re
 STATIC_EXPERIMENT_DATA_FILE = PREFIX / "symbolic_execution_static.txt"
 DYNAMIC_EXPERIMENT_DATA_FILE = PREFIX / "symbolic_execution_dynamic.txt"
 
-BINARIES_DEPTH_5_DIR = PREFIX / "binaries_depth_5"
-PATCH_DEPTH_5 = Path("../../loki/obfuscator/syntactic_simplification_binaries_depth_5.patch").resolve()
+DEPTH_5_BINARIES_DIR = PREFIX / "binaries_depth_5"
+DEPTH_5_PATCH = Path("../../loki/obfuscator/syntactic_simplification_binaries_depth_5.patch").resolve()
 DEPTH_5_STATIC_EXPERIMENT_DATA_FILE = PREFIX / "symbolic_execution_depth_5_static.txt"
 DEPTH_5_DYNAMIC_EXPERIMENT_DATA_FILE = PREFIX / "symbolic_execution_depth_5_dynamic.txt"
 
@@ -58,12 +58,16 @@ def run_cmd(cmd: List[str], cwd: Path) -> None:
     print(p.stdout.decode())
 
 
-def build_binaries(args: Namespace, binaries_dir: Path, patch: Path) -> None:
+def build_binaries(args: Namespace, binaries_dir: Path, patch: Path, use_superops: bool) -> None:
     if binaries_dir.exists():
         logger.info(
             f"Binaries directory already exists -- skipping creation of obfuscated instances -- dir is {binaries_dir}"
         )
         return None
+    cmd = ["git", "checkout", "."]
+    cwd = patch.parent
+    logger.debug("Undoing any potential modification")
+    run_cmd(cmd, cwd)
     # apply patch
     cmd = ["git", "apply", patch.as_posix()]
     cwd = patch.parent
@@ -76,10 +80,12 @@ def build_binaries(args: Namespace, binaries_dir: Path, patch: Path) -> None:
     binaries_dir.parent.mkdir(parents=True, exist_ok=True)
     cmd = [
         "python3", obfuscate_script.as_posix(), binaries_dir.as_posix(),
-        "--instances", f"{NUM_INSTANCES}", "--allow", "se_analysis", "--nosuperopt", "--deterministic",
+        "--instances", f"{NUM_INSTANCES}", "--allow", "se_analysis", "--deterministic",
         "--verification-rounds", "0",
         "--log-level", str(args.log_level), "--max-processes", str(args.max_processes)
     ]
+    if not use_superops:
+        cmd += [ "--nosuperopt", ]
     run_cmd(cmd, cwd)
     # undo patch
     cmd = ["git", "checkout", "."]
@@ -135,14 +141,14 @@ def evaluate_results(_: Namespace, static_file: Path, dynamic_file: Path, depth:
 def main(args: Namespace) -> None:
     # Step 1 build binaries
     logger.info("Building binaries depth 3")
-    build_binaries(args, BINARIES_DIR, PATCH)
+    build_binaries(args, BINARIES_DIR, PATCH, use_superops=False)
     logger.info("Building binaries depth 5")
-    build_binaries(args, BINARIES_DEPTH_5_DIR, PATCH_DEPTH_5)
+    build_binaries(args, DEPTH_5_BINARIES_DIR, DEPTH_5_PATCH, use_superops=True)
     logger.info("Running experiment depth 3")
     run_experiments(args, BINARIES_DIR, STATIC_EXPERIMENT_DATA_FILE, DYNAMIC_EXPERIMENT_DATA_FILE, 3)
     logger.info("Running experiment depth 5")
     run_experiments(
-        args, BINARIES_DEPTH_5_DIR, DEPTH_5_STATIC_EXPERIMENT_DATA_FILE, DEPTH_5_DYNAMIC_EXPERIMENT_DATA_FILE, 5
+        args, DEPTH_5_BINARIES_DIR, DEPTH_5_STATIC_EXPERIMENT_DATA_FILE, DEPTH_5_DYNAMIC_EXPERIMENT_DATA_FILE, 5
     )
     logger.info("Evaluating results depth 3")
     evaluate_results(args, STATIC_EXPERIMENT_DATA_FILE, DYNAMIC_EXPERIMENT_DATA_FILE, 3)

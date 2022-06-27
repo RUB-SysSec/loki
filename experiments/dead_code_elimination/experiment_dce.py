@@ -68,7 +68,7 @@ def build_binaries(args: Namespace) -> None:
     cmd = [
         "python3", obfuscate_script.as_posix(), BINARIES_DIR.as_posix(),
         "--instances", f"{NUM_INSTANCES}", "--allow", "aes_encrypt", "des_encrypt", "rc4", "md5", "sha1",
-        "--verification-rounds", "1000",
+        "--verification-rounds", "10",
         "--log-level", str(args.log_level), "--max-processes", str(args.max_processes)
     ]
     run_cmd(cmd, cwd)
@@ -104,6 +104,10 @@ def evaluate_results(_: Namespace) -> None:
     eval_script = Path("./eval_dead_code_elimination.py").resolve()
     cwd = eval_script.parent
     cmd = ["python3", eval_script.as_posix(), EXPERIMENT_DATA_FILE.as_posix()]
+    run_cmd(cmd, cwd)
+    eval_script_2 = Path("./eval_executed_handler.py").resolve()
+    cwd = eval_script_2.parent
+    cmd = ["python3", eval_script_2.as_posix(), BINARIES_DIR.as_posix()]
     run_cmd(cmd, cwd)
 
 

@@ -12,15 +12,19 @@ def main(args: Namespace) -> None:
     with open(args.path, "r", encoding="utf-8") as f:
         content = [l.strip() for l in f.readlines() if l]
     unique_mbas = set(content)
-    print(f"Found {len(content)} MBAs")
-    print(f"Found {len(unique_mbas)} unique MBAs")
-    print(unique_mbas)
+    print(f"{args.path.name}: Found {len(content)} MBAs")
+    percentage = round(100 * len(unique_mbas) / len(content), 2)
+    print(f"{args.path.name}: Found {len(unique_mbas)} unique MBAs ({percentage}%)")
+    # print(unique_mbas)
     if args.diff_to:
         with open(args.diff_to, "r", encoding="utf-8") as f:
             content_2 = [l.strip() for l in f.readlines() if l]
         unique_mbas_2 = set(content_2)
-        print(f"Found {len(unique_mbas.difference(unique_mbas_2))} unique MBAs"\
-              f" in {args.path.name} that are not in {args.diff_to.name}")
+        difference = len(unique_mbas.difference(unique_mbas_2))
+        percentage_diff = round(100 * difference / len(unique_mbas), 2)
+        print(
+            f"{args.path.name}: Found {difference} unique MBAs in {args.path.name} " \
+            f"that are not in {args.diff_to.name} ({percentage_diff}%)")
 
 if __name__ == "__main__":
     parser = ArgumentParser(description="Evaluate number of unique MBAs")

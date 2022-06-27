@@ -17,22 +17,32 @@ To build the binaries, run the following:
 
 ```
 # create binaries
+cd ../../loki
 mkdir -p /home/user/evaluation/experiment_13_superoperators_binary_level
-./obfuscate.py /home/user/evaluation/experiment_13_superoperators_binary_level/binaries --instances 400 --allow aes_encrypt des_encrypt rc4 md5 sha1 --nomba --verification-rounds 1000
+python3 obfuscate.py /home/user/evaluation/experiment_13_superoperators_binary_level/binaries --instances 10 --allow aes_encrypt des_encrypt rc4 md5 sha1 --nomba --verification-rounds 0
+cd -
 ```
+_Expected time (104 CPU cores): 15 minutes_
+
+Noteworthy, this will create only 10 obfuscated instances (instead of 400 as in the paper).
 
 ## 2. Extract handlers
-We first need to extract handlers with their index and a valid key. We randomly sample 10000 handler with one of their valid keys which we will then attempt to synthesize. To do so, run the `extract_handlers.py` script in LokiAttack.
+We first need to extract handlers with their index and a valid key. We randomly sample 1,000 handler with one of their valid keys which we will then attempt to synthesize (in the paper, we used 10,000). To do so, run the `extract_handlers.py` script in LokiAttack.
 ```
-python3 extract_handlers.py /home/user/evaluation/experiment_13_superoperators_binary_level/binaries 10000 -o /home/user/evaluation/experiment_13_superoperators_binary_level/sampled_handlers.txt
+cd ../../lokiattack
+python3 extract_handlers.py /home/user/evaluation/experiment_13_superoperators_binary_level/binaries 1000 -o /home/user/evaluation/experiment_13_superoperators_binary_level/sampled_handlers.txt
 ```
+_Expected time (104 CPU cores): 1 second_
+
 
 ## 3. Synthesize handlers
-We then use Syntia to attempt to synthesize the handlers. We do so exclusively in the stronger dynamic setting. Additionally, we need t oset the `--handler-list` flag to point to the file produced in the previous step.
+We then use Syntia to attempt to synthesize the handlers. We do so exclusively in the stronger dynamic setting. Additionally, we need to set the `--handler-list` flag to point to the file produced in the previous step.
 ```
-# dynamic attacker
+# in lokiattack directory
 python3 run.py synthesis /home/user/evaluation/experiment_13_superoperators_binary_level/binaries dynamic -o /home/user/evaluation/experiment_13_superoperators_binary_level/synthesis_results.txt --handler-list /home/user/evaluation/experiment_13_superoperators_binary_level/sampled_handlers.txt
+cd -
 ```
+_Expected time (104 CPU cores): 30 minutes_
 
 ## 4. Draw conclusions
 Finally, we can analyze the outcome:
@@ -40,4 +50,6 @@ Finally, we can analyze the outcome:
 # dynamic attacker
 python3 eval_synthesis.py /home/user/evaluation/experiment_13_superoperators_binary_level/synthesis_results.txt
 ```
-This will print some statistics.
+_Expected time (104 CPU cores): 1 second_
+
+This will print some statistics. You can compare the percentage of successful synthesis tasks to the one reported in the paper for Experiment 13.

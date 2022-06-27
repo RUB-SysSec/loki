@@ -110,7 +110,7 @@ WORKDIR "/home/user"
 USER user
 
 # install GEF (gdb extension)
-RUN wget -O ~/.gdbinit-gef.py -q https://tinyurl.com/gef-master   && echo source ~/.gdbinit-gef.py >> ~/.gdbinit
+RUN wget -O ~/.gdbinit-gef.py -q https://gef.blah.cat/py  && echo source ~/.gdbinit-gef.py >> ~/.gdbinit
 
 # install rust
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | bash -s -- -q -y --default-toolchain nightly

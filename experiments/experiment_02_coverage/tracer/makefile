@@ -1,4 +1,4 @@
-PIN_ROOT=/opt/pin
+PIN_ROOT=/home/user/loki/experiments/experiment_02_coverage/tracer/pin
 CONFIG_ROOT := $(PIN_ROOT)/source/tools/Config
 include $(CONFIG_ROOT)/makefile.config
 include makefile.rules

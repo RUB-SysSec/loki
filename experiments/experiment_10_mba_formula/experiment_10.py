@@ -158,7 +158,7 @@ def run_sspam_experiment() -> None:
     logger.debug("Installing SSPAM dependencies")
     cmd = [
         "/home/user/.pyenv/versions/3.6.8/bin/python", "-m", "pip", "install", "--user",
-        "sympy==0.7.4", "astunparse~=1.3"
+        "sympy==0.7.4", "astunparse~=1.3", "z3-solver==4.8.7"
     ]
     run_cmd(cmd, sspam_cwd)
 

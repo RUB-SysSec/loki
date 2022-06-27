@@ -146,7 +146,7 @@ def test_instance(cmd: List[str], attacker_type: str, target_tuple: Tuple[Path, 
     cmd += [target.parent.as_posix()]
     cmd += [str(core_semantics_idx)]
     cmd += [attacker_type]
-    print(cmd)
+    # print(cmd)
     try:
         p = subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     except subprocess.CalledProcessError as e:

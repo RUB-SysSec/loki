@@ -16,19 +16,31 @@ This does not apply MBAs or superoperators and schedules the VM handler determin
 To do so, run the following: 
 
 ```
+cd ../../loki/
 mkdir -p /home/user/evaluation/experiment_05_key_encodings_bin_level/
-./obfuscate.py /home/user/evaluation/experiment_05_key_encodings_bin_level/binaries --instances 1000 --allow smt_analysis --nomba --nosuperopt --deterministic
+python3 obfuscate.py /home/user/evaluation/experiment_05_key_encodings_bin_level/binaries --instances 20 --allow smt_analysis --nomba --nosuperopt --deterministic
+cd -
 ```
+_Expected time (104 CPU cores): 2 minutes_
+
+Note that contrary to the paper, we build 20 instances instead of 1,000.
+
 
 ## 2. Run LokiAttack with SMT solver plugin
 In LokiAttack folder, run:
 ```
-mkdir -p ~/evaluation/experiment_data
-python3 run.py smt  /home/user/evaluation/experiment_05_key_encodings_bin_level/binaries static -o /home/user/evaluation/experiment_05_key_encodings_bin_level/results.txt
+cd ../../lokiattack
+python3 run.py smt /home/user/evaluation/experiment_05_key_encodings_bin_level/binaries static -o /home/user/evaluation/experiment_05_key_encodings_bin_level/results.txt
+cd -
 ```
+_Expected time (104 CPU cores): 4 hours_
+
+If this runtime is deemed excessive, we recommend creating only 10 obfuscated instances instead of 20.
 
 ## 3. Draw conclusions
 ```
 python3 eval_smt.py /home/user/evaluation/experiment_05_key_encodings_bin_level/results.txt
 ```
-This will evaluate the results and print some statistics.
+_Expected time (104 CPU cores): 1 second_
+
+This will evaluate the results and print some statistics. You can compare the percentage where z3 managed to find a correct key ("solved") to the number reported in the Expeirment 5 in the paper.

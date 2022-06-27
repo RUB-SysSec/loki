@@ -20,8 +20,8 @@ def miasm_mul() -> ExprSlice:
     return ExprSlice(ExprOp("*", ExprCond(ExprSlice(ExprId("y", size=64), 63, 64), ExprCompose(ExprId("y", size=64), ExprInt(0xffffffffffffffff, 64)), ExprCompose(ExprId("y", size=64), ExprInt(0x0, 64))), ExprCond(ExprSlice(ExprOp("*", ExprCond(ExprSlice(ExprId("c", size=64), 63, 64), ExprCompose(ExprId("c", size=64), ExprInt(0xffffffffffffffff, 64)), ExprCompose(ExprId("c", size=64), ExprInt(0x0, 64))), ExprCond(ExprSlice(ExprId("x", size=64), 63, 64), ExprCompose(ExprId("x", size=64), ExprInt(0xffffffffffffffff, 64)), ExprCompose(ExprId("x", size=64), ExprInt(0x0, 64)))), 63, 64), ExprCompose(ExprSlice(ExprOp("*", ExprCond(ExprSlice(ExprId("c", size=64), 63, 64), ExprCompose(ExprId("c", size=64), ExprInt(0xffffffffffffffff, 64)), ExprCompose(ExprId("c", size=64), ExprInt(0x0, 64))), ExprCond(ExprSlice(ExprId("x", size=64), 63, 64), ExprCompose(ExprId("x", size=64), ExprInt(0xffffffffffffffff, 64)), ExprCompose(ExprId("x", size=64), ExprInt(0x0, 64)))), 0, 64), ExprInt(0xffffffffffffffff, 64)), ExprCompose(ExprSlice(ExprOp("*", ExprCond(ExprSlice(ExprId("c", size=64), 63, 64), ExprCompose(ExprId("c", size=64), ExprInt(0xffffffffffffffff, 64)), ExprCompose(ExprId("c", size=64), ExprInt(0x0, 64))), ExprCond(ExprSlice(ExprId("x", size=64), 63, 64), ExprCompose(ExprId("x", size=64), ExprInt(0xffffffffffffffff, 64)), ExprCompose(ExprId("x", size=64), ExprInt(0x0, 64)))), 0, 64), ExprInt(0x0, 64)))), 0, 64)
 
 
-def miasm_shl(x: ExprId, y: ExprId) -> ExprOp:
-    return x << (ExprCompose(ExprSlice(y, 0, 8), ExprInt(0x0, 56)) & ExprInt(0x3f, 64))
+def miasm_shl() -> ExprOp:
+    return ExprOp("<<", ExprId("x", size=64), ExprOp("+", ExprOp("&", ExprCompose(ExprSlice(ExprId("c", size=64), 0, 8), ExprInt(0x0, 56)), ExprInt(0x3f, 64)), ExprOp("&", ExprCompose(ExprSlice(ExprId("y", size=64), 0, 8), ExprInt(0x0, 56)), ExprInt(0x3f, 64))))
 
 
 SET_KEY = True
@@ -45,7 +45,7 @@ handler_key_pos = [
     # x * y * c
     (7, 29, expr_simp(miasm_mul())),
     # x << y << c
-    (8, 35, miasm_shl(x, y)),
+    (8, 35, miasm_shl()),
 ]
 
 if len(sys.argv) < 4:

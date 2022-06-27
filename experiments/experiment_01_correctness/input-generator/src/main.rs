@@ -7,7 +7,7 @@ use rand::prelude::Distribution;
 use serde::{Deserialize, Serialize};
 
 // const NUM_RANDOM_INPUTS_PER_LENGTH_LEVEL: usize = 10_000;
-const NUM_RANDOM_INPUTS_PER_LENGTH_LEVEL: usize = 100;
+const NUM_RANDOM_INPUTS_PER_LENGTH_LEVEL: usize = 1_000;
 const LENGTH_LEVEL_UPPER_BOUND: usize = 128 + 1;
 const LENGTH_LEVEL_LOWER_BOUND: usize = 16;
 const INPUT_LEN: usize = 128;

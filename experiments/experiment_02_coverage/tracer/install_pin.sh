@@ -19,3 +19,5 @@ fi
 
 # fix PIN_ROOT in makefile
 sed -i "s?PIN_ROOT=/opt/pin?PIN_ROOT=$(pwd)/pin?g" makefile
+
+make -j

@@ -16,11 +16,14 @@ pushd translator > /dev/null
 if [ ! -L llvm ]; then
     ln -s /llvm llvm
 fi
+if [ -d build ]; then
+    rm -r build
+fi
 ./build.sh
 popd > /dev/null
 
 # build Rust component
-pushd transformer > /dev/null
+pushd obfuscator > /dev/null
 cargo build
 cargo build --release
 popd > /dev/null

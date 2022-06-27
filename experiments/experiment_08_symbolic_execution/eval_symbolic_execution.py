@@ -50,6 +50,8 @@ for line in open(file_path):
 
 
 print(f"number of tasks: {num_tasks}")
+print(f"avg #IR paths: {total_ir_paths / num_tasks}")
+print(f"avg #observed different semantis: {total_different_semantics / num_tasks}")
 print(f"total time: {total_time}")
 print(f"avg time: {total_time / num_tasks}")
 if num_success:
@@ -62,5 +64,3 @@ if num_failure:
     print(f"%simplified: {to_percentage(num_success / num_tasks)}")
 else:
     print("%simplified: 100.00%")
-print(f"avg #IR paths: {total_ir_paths / num_tasks}")
-print(f"avg #observed different semantis: {total_different_semantics / num_tasks}")

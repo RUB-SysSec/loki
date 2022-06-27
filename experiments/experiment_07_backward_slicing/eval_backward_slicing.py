@@ -39,6 +39,7 @@ for line in content:
     total_time += time
 
 avg_sliced = 100 * ((total_num_sliced_instructions / num_tasks) / (total_num_asm_instructions / num_tasks))
+avg_nonsliced = 100 - avg_sliced
 
 print(f"number of tasks: {num_tasks}")
 print(f"total time: {total_time}")
@@ -46,4 +47,5 @@ print(f"avg time: {total_time / num_tasks}")
 print(f"avg #IR paths: {total_ir_paths / num_tasks}")
 print(f"avg #visited instructions: {total_num_asm_instructions / num_tasks}")
 print(f"avg #sliced instructions: {total_num_sliced_instructions / num_tasks}")
-print(f"avg %sliced instructions: {avg_sliced}")
+print(f"avg %sliced instructions: {round(avg_sliced, 2)}%")
+print(f"avg %not-sliced instructions: {round(avg_nonsliced, 2)}%")

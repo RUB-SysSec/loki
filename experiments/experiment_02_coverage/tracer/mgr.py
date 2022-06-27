@@ -72,8 +72,8 @@ def trace_vm(instance: Path, input_tup: Tuple[List[int], List[int]]) -> List[int
     input_2 = [b if b != 0 else 1 for b in input_2]
     input_1_bytes = bytes(input_1)
     input_2_bytes = bytes(input_2)
-    cmd.append(input_1_bytes)
-    cmd.append(input_2_bytes)
+    cmd.append(input_1_bytes) # type: ignore
+    cmd.append(input_2_bytes) # type: ignore
     output = None
     try:
         p = subprocess.run(cmd, shell=False, check=True, env=env,

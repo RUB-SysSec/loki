@@ -15,6 +15,3 @@ set ignorecase               " Search case insensitive...
 set expandtab
 set shiftwidth=4
 set tabstop=4
-
-set spell spelllang=en_us
-

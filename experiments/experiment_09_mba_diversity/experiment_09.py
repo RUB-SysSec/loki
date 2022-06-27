@@ -19,10 +19,11 @@ logger = logging.getLogger("Experiment-09")
 
 PREFIX = Path("/home/user/evaluation/experiment_06_07_08_syntactic_simplification")
 
-BINARIES_DIR = PREFIX / "binaries"
+BINARIES_DIR_S1 = PREFIX / "binaries"
+BINARIES_DIR_S2 = PREFIX / "binaries_second_set"
 PATCH = Path("../../loki/obfuscator/syntactic_simplification_binaries.patch").resolve()
-STATIC_EXPERIMENT_DATA_FILE = PREFIX / "mba_diversity_static.txt"
-DYNAMIC_EXPERIMENT_DATA_FILE = PREFIX / "mba_diversity_dynamic.txt"
+EXPERIMENT_DATA_FILE_S1 = PREFIX / "mba_diversity_first_set.txt"
+EXPERIMENT_DATA_FILE_S2 = PREFIX / "mba_diversity_second_set.txt"
 
 
 def setup_logging(log_level: int = logging.DEBUG) -> None:
@@ -56,6 +57,11 @@ def build_binaries(args: Namespace, binaries_dir: Path, patch: Path) -> None:
             f"Binaries directory already exists -- skipping creation of obfuscated instances -- dir is {binaries_dir}"
         )
         return None
+    # undo any modifications
+    cmd = ["git", "checkout", "."]
+    cwd = patch.parent
+    logger.debug(f"Undoing any potential modifications")
+    run_cmd(cmd, cwd)
     # apply patch
     cmd = ["git", "apply", patch.as_posix()]
     cwd = patch.parent
@@ -80,52 +86,52 @@ def build_binaries(args: Namespace, binaries_dir: Path, patch: Path) -> None:
     run_cmd(cmd, cwd)
 
 
-def run_experiments(args: Namespace) -> None:
+def run_experiments(args: Namespace, binaries: Path, data_file: Path) -> None:
     lokiattack_script = Path("../../lokiattack/run.py").resolve()
     cwd = lokiattack_script.parent
-    # # static attacker
-    # logger.info(f"Running mba_dump -- static attacker")
-    # STATIC_EXPERIMENT_DATA_FILE.parent.mkdir(exist_ok=True)
-    # cmd = [
-    #     "python3", lokiattack_script.as_posix(), "mba_dump", BINARIES_DIR.as_posix(), "static",
-    #     "-o", STATIC_EXPERIMENT_DATA_FILE.as_posix(),
-    #     "--log-level", str(args.log_level), "--max-processes", str(args.max_processes)
-    # ]
-    # run_cmd(cmd, cwd)
-    # dynamic attacker
-    logger.info(f"Running mba_dump -- dynamic attacker")
-    DYNAMIC_EXPERIMENT_DATA_FILE.parent.mkdir(exist_ok=True)
+    logger.info(f"Running mba_dump -- dynamic attacker -- results in {data_file.as_posix()}")
+    data_file.parent.mkdir(exist_ok=True)
     cmd = [
-        "python3", lokiattack_script.as_posix(), "mba_dump", BINARIES_DIR.as_posix(), "dynamic",
-        "-o", DYNAMIC_EXPERIMENT_DATA_FILE.as_posix(),
+        "python3", lokiattack_script.as_posix(), "mba_dump", binaries.as_posix(), "dynamic",
+        "-o", data_file.as_posix(),
         "--log-level", str(args.log_level), "--max-processes", str(args.max_processes)
     ]
     run_cmd(cmd, cwd)
 
 
-def evaluate_file(file_: Path) -> None:
+def evaluate_file(file_: Path, diff_to: Optional[Path]) -> None:
     eval_script = Path("./eval_mba_diversity.py").resolve()
     cwd = eval_script.parent
     cmd = ["python3", eval_script.as_posix(), file_.as_posix()]
+    if diff_to is not None:
+        cmd += ["--diff-to", diff_to.as_posix()]
     run_cmd(cmd, cwd)
 
 
-def evaluate_results(_: Namespace) -> None:
+def evaluate_results(args: Namespace, data_s1: Path, data_s2: Path) -> None:
     # logger.info("Evaluating mba diversity -- STATIC attacker")
     # evaluate_file(STATIC_EXPERIMENT_DATA_FILE)
 
     logger.info("Evaluating mba diversity -- DYNAMIC attacker")
-    evaluate_file(DYNAMIC_EXPERIMENT_DATA_FILE)
+    if not args.single_set:
+        evaluate_file(data_s2, None)
+        evaluate_file(data_s1, diff_to=data_s2)
+    else:
+        evaluate_file(data_s1, None)
 
 
 def main(args: Namespace) -> None:
     # Step 1 build binaries
     logger.info("Building binaries")
-    build_binaries(args, BINARIES_DIR, PATCH)
+    build_binaries(args, BINARIES_DIR_S1, PATCH)
+    if not args.single_set:
+        build_binaries(args, BINARIES_DIR_S2, PATCH)
     logger.info("Running experiment")
-    run_experiments(args)
+    run_experiments(args, BINARIES_DIR_S1, EXPERIMENT_DATA_FILE_S1)
+    if not args.single_set:
+        run_experiments(args, BINARIES_DIR_S2, EXPERIMENT_DATA_FILE_S2)
     logger.info("Evaluating results")
-    evaluate_results(args)
+    evaluate_results(args, EXPERIMENT_DATA_FILE_S1, EXPERIMENT_DATA_FILE_S2)
 
 
 if __name__ == "__main__":
@@ -137,6 +143,8 @@ if __name__ == "__main__":
     parser.add_argument("--max-processes", dest="max_processes", action="store", type=int,
                         default=NUM_CPUS,
                         help="Number of maximal usable processes (defaults to os.cpu_count())")
+    parser.add_argument("--single-set", action="store_true", default=False,
+                        help="Whether to evaluate MBA diversity on only one set or compare to a second set (default)")
     cargs = parser.parse_args()
 
     setup_logging(cargs.log_level * 10)
