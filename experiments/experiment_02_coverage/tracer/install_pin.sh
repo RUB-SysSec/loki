@@ -1,6 +1,8 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -eu
+
+PARALLEL_JOBS=${PARALLEL_JOBS:-1}
 
 PIN_DIR=pin-3.23-98579-gb15ab7903-gcc-linux
 PIN_FILE="$PIN_DIR.tar.gz"
@@ -20,4 +22,4 @@ fi
 # fix PIN_ROOT in makefile
 sed -i "s?PIN_ROOT=/opt/pin?PIN_ROOT=$(pwd)/pin?g" makefile
 
-make -j
+make -j "$PARALLEL_JOBS"

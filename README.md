@@ -13,7 +13,7 @@ It is based on our paper:
 }
 ```
 
-In this repository, we open-source our implementation and evaluation tooling. *Please note that this is _research code_: Our academic prototype is not intended for use in production but provided as-is. Unless otherwise specified, all our code and data are licensed under AGPL3.
+In this repository, we open-source our implementation and evaluation tooling. Please note that this is _research code_: Our academic prototype is not intended for use in production but provided as-is. Unless otherwise specified, all our code and data are licensed under AGPL3.
 
 ### Further Resources
 
@@ -37,7 +37,9 @@ The easiest way to use Loki is Docker.
 We provide a Dockerfile and a few convenience/helper scripts.
 
 ### Build docker image
-Run `./docker_build.sh` -- the image name is set in [docker_data/docker_config.sh](docker_data/docker_config.sh).
+Run `./docker_build.sh` -- the image name is set in [docker_data/docker_config.sh](docker_data/docker_config.sh). By default, this will use all available CPU cores (as determined by `nproc`). If this is not desired, set `PARALLEL_JOBS` in [docker_build.sh](docker_build.sh) to the number of cores you want to use.
+
+In general, we recommend building and running this on a server with at least 64GB of RAM. Both for building the image and running the experiments, more CPU cores and higher amounts of RAM are beneficial. If running out of RAM, set `PARALLEL_JOBS` to a lower value.
 
 ### Run docker container
 Run `./docker_run.sh` twice: First time, the docker container is started. If running `./docker_run.sh` while the container is running, you are connected (`/bin/zsh`). The bash and zsh history are saved (as is zshrc) in [docker_data](./docker_data). This directory is available as volume within the container as `/home/user/loki`, which allows to copy files to/from the container.
@@ -50,6 +52,7 @@ Once within the Docker container, install all tools and dependencies by running:
 ```
 ./setup.sh
 ```
+This script will use all available cores (as determined by `nproc`). If this is not desired, set `PARALLEL_JOBS` in [docker_data/zshrc](docker_data/zshrc) to the number of cores you want to use. This environment variable is used by all build scripts, however, has no effect on experiment scripts.
 
 ### Manual installation of dependencies
 

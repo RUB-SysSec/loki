@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -eu
 set -o pipefail
@@ -21,12 +21,7 @@ if [[ -n "$container" ]]; then
     cmd="docker start $container"
     echo "$cmd"
     $cmd
-    if [[ -v NO_TTY ]]; then
-        HAS_TTY=""
-    else
-        HAS_TTY="-t"
-    fi
-    cmd="docker exec -i $HAS_TTY --workdir /home/user/loki --user "$UID:$(id -g)" $container zsh"
+    cmd="docker exec -it --workdir /home/user/loki --user "$UID:$(id -g)" $container zsh"
     echo "$cmd"
     $cmd
     exit 0
@@ -47,10 +42,6 @@ cmd="docker run -t -d --privileged -v $PWD:/home/user/loki \
     --ulimit msgqueue=2097152000 \
     --shm-size=16G \
     --name $CONTAINER_NAME"
-
-if [[ -f "/home/$USER/.gitconfig" ]]; then
-    cmd+=" -v /home/$USER/.gitconfig:/home/user/.gitconfig"
-fi
 
 cmd+=" ${IMAGE_NAME} /bin/cat"
 

@@ -1,7 +1,9 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -eu
 set -o pipefail
+
+PARALLEL_JOBS=${PARALLEL_JOBS:-1}
 
 # install LLVM
 # pushd /llvm > /dev/null
@@ -24,7 +26,7 @@ popd > /dev/null
 
 # build Rust component
 pushd obfuscator > /dev/null
-cargo build
-cargo build --release
+cargo build -j "$PARALLEL_JOBS"
+cargo build --release -j "$PARALLEL_JOBS"
 popd > /dev/null
 

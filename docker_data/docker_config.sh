@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 USER_SUFFIX="$(id -u -n)"
 NAME="loki-obfuscation"

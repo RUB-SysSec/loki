@@ -25,7 +25,8 @@ RUN git clone https://github.com/llvm/llvm-project.git
 WORKDIR llvm-project
 RUN git checkout e6f22596e5de7f4fc6f1de4725d4aa9b6aeef4aa
 
-ARG NUM_CORES=52
+# will be overriden by docker_build.sh script
+ARG PARALLEL_JOBS=2
 
 # build type used to be RelWithDebInfo (but is 40GB instead of 1.5)
 WORKDIR $LLVM_INSTALL_DIR
@@ -39,12 +40,12 @@ RUN cmake \
   -DLLVM_ENABLE_IDE=On \
   -DLLVM_ENABLE_PROJECTS=clang \
   -DLLVM_TARGETS_TO_BUILD="X86" \
-  -DLLVM_PARALLEL_COMPILE_JOBS=$NUM_CORES \
-  -DLLVM_PARALLEL_LINK_JOBS=$NUM_CORES \
+  -DLLVM_PARALLEL_COMPILE_JOBS=$PARALLEL_JOBS \
+  -DLLVM_PARALLEL_LINK_JOBS=$PARALLEL_JOBS \
   -DLLVM_USE_LINKER=gold \
   -DLLVM_BUILD_LLVM_DYLIB=On \
   $LLVM_DIR/llvm-project/llvm \
-  && ninja -j 12
+  && ninja -j ${PARALLEL_JOBS}
 # end llvm_builder
 
 FROM ubuntu:18.04
@@ -54,11 +55,7 @@ COPY --from=llvm_builder /llvm_src /llvm_src
 
 FROM ubuntu:18.04
 
-# import LLVM 
-# COPY --from=reg.theinbox.de/llvm_obfuscation/llvm-e6f22596e5 /llvm /llvm
-# COPY --from=reg.theinbox.de/llvm_obfuscation/llvm-e6f22596e5 /llvm_src /llvm_src
-# COPY --from=llvm-e6f22596e5 /llvm /llvm
-# COPY --from=llvm-e6f22596e5 /llvm_src /llvm_src
+# import LLVM
 COPY --from=llvm_builder /llvm /llvm
 COPY --from=llvm_builder /llvm_src /llvm_src
 
@@ -74,7 +71,7 @@ RUN apt update && apt install -y \
         sudo \
         neovim tree \
         bear ccache \
-        rr gdb strace ltrace valgrind \
+        gdb strace ltrace \
         htop \
         parallel psmisc \
         zip unzip \
@@ -88,8 +85,6 @@ RUN apt update && apt install -y \
 
 # MISC NOTES
 # * psmisc contains killall
-# * for rr, user must run
-#   echo 1 | sudo tee /proc/sys/kernel/perf_event_paranoid
 
 RUN locale-gen en_US.UTF-8
 ARG USER_UID=1000
@@ -108,9 +103,6 @@ RUN useradd -l --shell /bin/bash -c "" -m -u ${USER_UID} -g user -G sudo user
 
 WORKDIR "/home/user"
 USER user
-
-# install GEF (gdb extension)
-RUN wget -O ~/.gdbinit-gef.py -q https://gef.blah.cat/py  && echo source ~/.gdbinit-gef.py >> ~/.gdbinit
 
 # install rust
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | bash -s -- -q -y --default-toolchain nightly

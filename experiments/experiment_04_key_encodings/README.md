@@ -29,3 +29,6 @@ For each encoding file you created, run [solve.py](./solve.py):
 ```
 python3 solve.py PATH_TO_FILE
 ```
+
+## Results
+The SMT solver should be able to solve about 70% of the point functions and none of the factorization-based encodings.

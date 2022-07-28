@@ -111,3 +111,6 @@ alias c="cargo"
 export PYENV_ROOT="$HOME/.pyenv"
 command -v pyenv >/dev/null || export PATH="$PYENV_ROOT/bin:$PATH"
 eval "$(pyenv init -)"
+
+# number of parallel jobs used for building
+export PARALLEL_JOBS=$(nproc)
