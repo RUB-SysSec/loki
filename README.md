@@ -2,7 +2,7 @@
 
 Loki is an academic obfuscator prototype developed to showcase novel VM handler hardening techniques.
 
-It is based on our paper:
+It is based on our [paper published at Usenix Security '22 (link)](https://www.usenix.org/conference/usenixsecurity22/presentation/schloegel):
 
 ```
 @inproceedings{schloegel2022loki,
@@ -17,7 +17,7 @@ In this repository, we open-source our implementation and evaluation tooling. Pl
 
 ### Further Resources
 
-We released an [artifact on Zenodo](https://zenodo.org/record/6686932) which contains binaries and data produced during our evaluation.
+We released an additional [artifact on Zenodo](https://zenodo.org/record/6686932) which contains binaries and data produced during our evaluation.
 
 Beyond our paper, a [technical report](https://arxiv.org/abs/2106.08913) with more details is available on arxiv.
 
