@@ -15,7 +15,7 @@ It is based on our [paper published at Usenix Security '22 (link)](https://www.u
 }
 ```
 
-In this repository, we open-source our implementation and evaluation tooling. Please note that this is _research code_: Our academic prototype is not intended for use in production but provided as-is. Unless otherwise specified, all our code and data are licensed under AGPL3.
+In this repository, we open-source our implementation and evaluation tooling. Please note that this is _research code_: Our academic prototype is not intended for use in production but provided as-is. Unless otherwise specified, all our code and data are licensed under AGPL3. Loki has been awarded the *Artifact Available*, *Artifact Functional*, and *Artifact Reproduced* badges by the Usenix Artifact Evaluation Committee.
 
 ### Further Resources
 
