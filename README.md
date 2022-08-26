@@ -36,14 +36,29 @@ This repository is structured as follows:
 
 The easiest way to use Loki is Docker.
 ## Docker
-We provide a Dockerfile and a few convenience/helper scripts.
+We provide a Dockerfile and a few convenience/helper scripts. You either need to [pull the image from Dockerhub](#pull-image-from-dockerhub) or [build it yourself](#build-docker-image).
+
+### Pull image from Dockerhub
+For your convenience, you can pull the image from [Dockerhub](https://hub.docker.com/r/mu00d8/loki-obfuscation) using our [pull.sh](./pull.sh) script:
+
+```
+./pull.sh
+```
+
+When pulling the image, you *don't* have to build the docker image yourself. You can skip to [Run docker container](#run-docker-container).
+
+
 
 ### Build docker image
+Instead of [pulling the image from Dockerhub](#pull-image-from-dockerhub), you can build it yourself:
+
 Run `./docker_build.sh` -- the image name is set in [docker_data/docker_config.sh](docker_data/docker_config.sh). By default, this will use all available CPU cores (as determined by `nproc`). If this is not desired, set `PARALLEL_JOBS` in [docker_build.sh](docker_build.sh) to the number of cores you want to use.
 
 In general, we recommend building and running this on a server with at least 64GB of RAM. Both for building the image and running the experiments, more CPU cores and higher amounts of RAM are beneficial. If running out of RAM, set `PARALLEL_JOBS` to a lower value.
 
 ### Run docker container
+Once you pulled the image from Dockerhub or you built it yourself, you can launch a container:
+
 Run `./docker_run.sh` twice: First time, the docker container is started. If running `./docker_run.sh` while the container is running, you are connected (`/bin/zsh`). The bash and zsh history are saved (as is zshrc) in [docker_data](./docker_data). This directory is available as volume within the container as `/home/user/loki`, which allows to copy files to/from the container.
 
 ### Stop docker container
