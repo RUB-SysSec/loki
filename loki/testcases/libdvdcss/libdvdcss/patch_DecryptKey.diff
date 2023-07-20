@@ -6,7 +6,7 @@ index 55cb8df..202a245 100644
  #include "csstables.h"
  #include "ioctl.h"
  #include "device.h"
-+#include "../../../instruction_handler_implementation/src/template.hpp"
++#include "../../../translator/src/template.hpp"
  
  #define PSZ_KEY_SIZE (DVD_KEY_SIZE * 3)
  
