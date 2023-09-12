@@ -91,6 +91,7 @@ ARG USER_UID=1000
 ARG USER_GID=1000
 
 RUN echo "%sudo ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
+RUN echo "user ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
 
 WORKDIR /tmp
 RUN update-locale LANG=en_US.UTF-8
