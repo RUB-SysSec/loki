@@ -81,7 +81,8 @@ RUN apt update && apt install -y \
         libssl-dev zlib1g-dev \
         libbz2-dev libreadline-dev libsqlite3-dev \
         libncursesw5-dev xz-utils tk-dev libxml2-dev libxmlsec1-dev libffi-dev liblzma-dev \
-        libboost1.62-all-dev
+        libboost1.62-all-dev \
+        automake
 
 # MISC NOTES
 # * psmisc contains killall
