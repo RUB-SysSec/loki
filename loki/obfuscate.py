@@ -58,6 +58,10 @@ RUST_CONFIG = """pub const CONFIG: Config = Config {
 logger = logging.getLogger("obfuscate-script")
 MAX_PARALLEL_PROCESSES = NUM_CPUS
 
+ORIG_BIN_NAME = "orig_exe"
+OBF_BIN_NAME = "obf_exe"
+OBF_LIB_NAME = "libobf.so"
+
 ################################################################
 
 def setup_logging(target_dir: Path, log_level: int = logging.DEBUG) -> None:
@@ -81,7 +85,7 @@ def setup_logging(target_dir: Path, log_level: int = logging.DEBUG) -> None:
 
 def identify_pointer_args() -> List[bool]:
     """Identify which arguments of target_function are pointers"""
-    with open("./src/input_program.cpp", "r") as input_program:
+    with open("./src/input_program.cpp", "r", encoding="utf-8") as input_program:
         content = [l for l in input_program.readlines() if 'extern "C"' in l and "target_function(" in l]
     assert len(content) == 1, f"Found {len(content)} definitions of target_function in ./src/input_program.cpp"
     arg_str = content[0].split("target_function(")[1]
@@ -95,7 +99,7 @@ def create_random_string_testcase() -> str:
         return "A" * random.randint(16, 128 + 1)
     if choice == 1:
         return "B" * random.choice([16, 32, 64])
-    raise Exception(f"Unexpected case: choice is {choice} but should be 0 to 1 (included)")
+    raise ValueError(f"Unexpected case: choice is {choice} but should be 0 to 1 (included)")
 
 
 def create_random_testcase() -> str:
@@ -115,7 +119,7 @@ def create_random_testcase() -> str:
             0xffff_ffff, 0x8000_0000_0000_0000, 0xffff_ffff_ffff_ffff
         ]
         return str(random.choice(special_testcases))
-    raise Exception(f"Unexpected case: choice is {choice} but should be 0 to 4 (included)")
+    raise ValueError(f"Unexpected case: choice is {choice} but should be 0 to 4 (included)")
 
 ### End generate random inputs ###
 
@@ -241,30 +245,34 @@ def enumerate_testcases(allowlist: List[str], denylist: List[str]) -> List[Path]
 
 def assert_is_exec(executable: Path) -> None:
     """Assert file exists and is executable"""
-    assert executable.exists and executable.is_file() \
+    assert executable.exists() and executable.is_file() \
             and os.access(executable, os.X_OK), f"{executable} does not exist or is not executable"
 
 
 def assert_is_file(file: Path) -> None:
     """Assert file exists"""
-    assert file.exists and file.is_file(), f"{file} does not exist"
+    assert file.exists() and file.is_file(), f"{file} does not exist"
 
 
 def assert_is_dir(directory: Path) -> None:
     """Assert directory exists"""
-    assert directory.exists and directory.is_dir(), f"{directory} directory does not exist"
+    assert directory.exists() and directory.is_dir(), f"{directory} directory does not exist"
 
 
-def check_bin_dir(eval_dir: Path) -> None:
+def check_bin_dir(eval_dir: Path, shared: bool) -> None:
     """Check whether expected directories exist"""
     bin_path = eval_dir / "bin"
     assert_is_dir(bin_path)
-    assert_is_exec(bin_path / "lift_input")
+    if not shared:
+        assert_is_exec(bin_path / "lift_input")
+    else:
+        assert_is_file(bin_path / "lift_input")
     assert_is_exec(bin_path / "generate-vm-9.0")
     assert_is_file(bin_path / "template.bc")
 
 
-def check_workdir_dir(testcase_dir: Path, num_instances: int, ignore: Optional[List[Path]] = None) -> None:
+def check_workdir_dir(testcase_dir: Path, num_instances: int, shared: bool, ignore: Optional[List[Path]] = None) \
+            -> None:
     """Check whether the testcase"""
     assert_is_dir(testcase_dir)
     assert_is_dir(testcase_dir / "src")
@@ -278,9 +286,11 @@ def check_workdir_dir(testcase_dir: Path, num_instances: int, ignore: Optional[L
         instance_dir = testcase_dir / "instances" / f"vm_alu{number:03}"
         assert_is_dir(instance_dir)
         if ignore is None or instance_dir not in ignore:
-            assert_is_exec(instance_dir / "obf_exe")
-        # assert_is_file(testcase_dir / f"vm_alu{number:03}" / "obf_exe")
-    assert_is_file(testcase_dir / "bin" / "orig_exe")
+            if shared:
+                assert_is_file(instance_dir / OBF_LIB_NAME)
+            else:
+                assert_is_exec(instance_dir / OBF_BIN_NAME)
+    assert_is_file(testcase_dir / "bin" / ORIG_BIN_NAME)
 
 
 def run_exe(executable: Path, cmd_arguments: List[str], timeout: int, check: bool = False, silent: bool = False,
@@ -328,6 +338,7 @@ def lift_input(eval_dir: Path, input_program: Path, timeout: int) -> bool:
     error_lines = [l.strip() for l in output.split("\n") if \
         not "Could not translate an instruction:  ret i64 %" in l and \
         not "Could not translate an instruction:  ret i32 %" in l and \
+        not "Could not translate an instruction:  ret i8 %" in l and \
         not "Done." in l and \
         not "call void @llvm.lifetime" in l \
         ]
@@ -381,7 +392,7 @@ def prepare_testcase_workdir(testcase_path: Path, workdir: Path, timeout: int) -
     """Create testcase workdir and compile original binary + bitcode"""
     # logger.debug(f"DDEBUG: {testcase_path}")
     workdir.mkdir()
-    src_subdir = (workdir / "src")
+    src_subdir = workdir / "src"
     src_subdir.mkdir()
     dst_input_program = src_subdir / "input_program.cpp"
     copy_file(testcase_path, dst_input_program)
@@ -395,7 +406,7 @@ def prepare_testcase_workdir(testcase_path: Path, workdir: Path, timeout: int) -
     input_program_opt = src_subdir / "input_program_opt.bc"
     llvm_dis(input_program_opt, timeout)
     (workdir / "bin").mkdir()
-    if not clangpp_compile(input_program_opt, workdir / "bin" / "orig_exe", ["-O3"], timeout):
+    if not clangpp_compile(input_program_opt, workdir / "bin" / ORIG_BIN_NAME, ["-O3"], timeout):
         logger.error(f"Failed to compile original executable for {workdir}")
         sys.exit(1)
 
@@ -414,7 +425,7 @@ def adapt_rust_config(modified_entries: List[str], silent: bool = False) -> bool
     """Adapt the eval dir path set in the vm_alu config, then recompile the project"""
     config_path = OBFUSCATOR_DIR / "vm_alu" / "src" / "config.rs"
     logger.debug(f"Using Rust config at {config_path}")
-    with open(config_path, "r") as config_file:
+    with open(config_path, "r", encoding="utf-8") as config_file:
         config = [l for l in config_file.read().split("\n")]
     ctr_modifications = 0
     for (i, line) in enumerate(config):
@@ -426,7 +437,7 @@ def adapt_rust_config(modified_entries: List[str], silent: bool = False) -> bool
                         logger.debug(f"Rust config entry modified to: '{config[i]}'")
                 ctr_modifications += 1
     # write back config to disk
-    with open(config_path, "w") as config_file:
+    with open(config_path, "w", encoding="utf-8") as config_file:
         config_file.write("\n".join(config))
     if ctr_modifications != len(modified_entries):
         logger.error(
@@ -474,21 +485,31 @@ def generate_vm(eval_workdir: Path, debug: bool, timeout: int, instance_dir: Pat
     return True
 
 
-def compile_obfuscated(debug: bool, timeout: int, instance: Path) -> Optional[Path]:
+def compile_obfuscated(debug: bool, timeout: int, shared: bool, instance: Path) -> Optional[Path]:
     """Compile obfuscated binary from bitcode"""
-    if not clangpp_compile((instance / "obf.bc").resolve(),
-                           instance / "obf_exe",
-                           ["-O3"],
-                           timeout=timeout,
-                           silent=True):
-        logger.error(f"Failed to compile obfuscated program for {instance}")
-        return instance
+    if shared:
+        if not clangpp_compile((instance / "obf.bc").resolve(),
+                               instance / OBF_LIB_NAME,
+                               ["-O3", "-fPIC", "-shared"],
+                               timeout=timeout,
+                               silent=True):
+            logger.error(f"Failed to compile obfuscated shared object for {instance}")
+            return instance
+    else:
+        if not clangpp_compile((instance / "obf.bc").resolve(),
+                               instance / OBF_BIN_NAME,
+                               ["-O3"],
+                               timeout=timeout,
+                               silent=True):
+            logger.error(f"Failed to compile obfuscated program for {instance}")
+            return instance
     if not debug:
         os.remove(instance / "obf.bc")
     return None
 
 
-def generate_obfuscated_vm(eval_workdir: Path, debug: bool, timeout: int, max_processes: int) -> List[Path]:
+def generate_obfuscated_vm(eval_workdir: Path, debug: bool, timeout: int, shared: bool, max_processes: int) \
+            -> List[Path]:
     """For each instance, create obfuscated binary"""
     instances = list((eval_workdir / "instances").glob("vm_alu*"))
     logger.debug(
@@ -501,26 +522,27 @@ def generate_obfuscated_vm(eval_workdir: Path, debug: bool, timeout: int, max_pr
     if not all(successful_generations):
         logger.critical("VM generation failed in at least one worker")
         sys.exit(1)
+    target = "binaries" if not shared else "shared objects"
     logger.debug(
-        f"Compiling obfuscated binaries for each instance for {len(instances)} instances " \
+        f"Compiling obfuscated {target} for each instance for {len(instances)} instances " \
         f"on up to {max_processes} processes.."
     )
     with Pool(max_processes) as pool:
-        compile_obfuscated_func = partial(compile_obfuscated, debug, timeout)
+        compile_obfuscated_func = partial(compile_obfuscated, debug, timeout, shared)
         instance_paths = pool.map(compile_obfuscated_func, instances)
     failed_instances = [i for i in instance_paths if i is not None]
     if failed_instances:
-        logger.error(f"Compiling obfuscated executable failed in {len(failed_instances)} workers")
+        logger.error(f"Compiling obfuscated {target} failed in {len(failed_instances)} workers")
         # check if we should continue or abort when there is a broken instance
         if FAILED_INSTANCE_IS_CRITICAL:
             sys.exit(1)
     return failed_instances
 
 
-def prepare_eval_dir(eval_dir_path: Path) -> Path:
+def prepare_eval_dir(eval_dir_path: Path, shared: bool) -> Path:
     """Create and prepare evaluation directory"""
     prepare_eval_bin_subdir(eval_dir_path / "bin")
-    check_bin_dir(eval_dir_path)
+    check_bin_dir(eval_dir_path, shared)
     workdir_path = eval_dir_path / "workdirs"
     workdir_path.mkdir()
     return workdir_path
@@ -548,7 +570,7 @@ def get_git_submodule_status(path: Path) -> str:
 
 def rust_config_to_str(path: Path) -> str:
     """Parse rust config and return relevant fields as str"""
-    with open(path, "r") as rust_config_file:
+    with open(path, "r", encoding="utf-8") as rust_config_file:
         config = rust_config_file.read()
     return config.split("pub const CONFIG: Config = Config {\n", 1)[1].split("};", 1)[0]
 
@@ -577,25 +599,27 @@ def main(path: Path, args: Namespace) -> None:
         adapt_rust_config(["    superoptimization: false,"])
     if args.deterministic:
         adapt_rust_config(["    schedule_non_deterministic: false,"])
-    with open(path / "documentation.txt", "a") as docu:
+    with open(path / "documentation.txt", "a", encoding="utf-8") as docu:
         docu.write(f"Time: {str(datetime.now())}\n")
         docu.write("Loki:\n\t" + "\n\t".join(get_git_info(GIT_DIR).split("\n")) + "\n")
         rust_config_str = rust_config_to_str(OBFUSCATOR_DIR / "vm_alu" / "src" / "config.rs")
         docu.write("Rust config:\n\t" + "\n\t".join(rust_config_str.split("\n")) + "\n")
     timestamp_start = time()
     setup_builds(base_dir, args.timeout)
-    workdir_path = prepare_eval_dir(path)
+    workdir_path = prepare_eval_dir(path, args.shared)
 
     testcases: List[Path] = enumerate_testcases(args.allow, args.deny)
 
-    for (i, testcase) in enumerate(testcases):
+    for (i, testcase) in enumerate(testcases[::-1]):
         logger.info(f"Inspecting {testcase.name} ({i+1}/{len(testcases)})")
         testcase_workdir = workdir_path / testcase.stem
         prepare_testcase_workdir(testcase, testcase_workdir, args.timeout)
         execute_vm_alu(testcase_workdir, args.timeout, args.max_processes)
         if not args.no_generate_vm:
-            failed_instances = generate_obfuscated_vm(testcase_workdir, args.debug, args.timeout, args.max_processes)
-            check_workdir_dir(testcase_workdir, args.num_instances, ignore=failed_instances)
+            failed_instances = generate_obfuscated_vm(
+                testcase_workdir, args.debug, args.timeout, args.shared, args.max_processes
+            )
+            check_workdir_dir(testcase_workdir, args.num_instances, args.shared, ignore=failed_instances)
         else:
             logger.debug("Skipping creation of obfuscated VMs due to user flag --no-generate-vm")
     logger.info(f"Done in {round(time() - timestamp_start, 2)}s")
@@ -622,9 +646,13 @@ if __name__ == "__main__":
                         help="Number of maximal usable processes (defaults to os.cpu_count())")
     parser.add_argument("--no-generate-vm", action="store_true", default=False,
                         help="Do not call generate-vm (needed for experiment 11)")
+    parser.add_argument("--shared", action="store_true", default=False,
+                        help="Build as a shared object (.so) instead of executable")
     parser.add_argument("--nomba", action="store_true", default=False, help="Do not use MBA (rewrite_mba: false)")
-    parser.add_argument("--nosuperopt", action="store_true", default=False, help="Do not use superoperators (superoptimization: false)")
-    parser.add_argument("--deterministic", action="store_true", default=False, help="Deterministic handler (schedule_non_deterministic: false)")
+    parser.add_argument("--nosuperopt", action="store_true", default=False,
+                        help="Do not use superoperators (superoptimization: false)")
+    parser.add_argument("--deterministic", action="store_true", default=False,
+                        help="Deterministic handler (schedule_non_deterministic: false)")
     cargs = parser.parse_args() # pylint: disable=invalid-name
 
     target_path = Path(cargs.path[0]).resolve() # pylint: disable=invalid-name
