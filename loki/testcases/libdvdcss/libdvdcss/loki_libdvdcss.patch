@@ -1,0 +1,913 @@
+diff --git a/loki/translator/CMakeLists.txt b/loki/translator/CMakeLists.txt
+index 014ada0..4550406 100644
+--- a/loki/translator/CMakeLists.txt
++++ b/loki/translator/CMakeLists.txt
+@@ -125,7 +125,7 @@ set(VM_LIFT_ME ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/input_program.bc)
+ 
+ add_custom_command(OUTPUT ${VM_TEMPLATE}
+     COMMAND ${VM_TEMPLATE_COMPILER}
+-    ARGS -c -emit-llvm --std=c++14 -O3 ${VM_TEMPLATE_IN} -o ${VM_TEMPLATE}
++    ARGS -c -emit-llvm --std=c++14 -O3 -fPIC ${VM_TEMPLATE_IN} -o ${VM_TEMPLATE}
+     DEPENDS ${VM_TEMPLATE_IN}
+     IMPLICIT_DEPENDS CXX
+ )
+@@ -145,7 +145,7 @@ add_executable(${BINARY_NAME}
+     src/generate_vm.cpp
+ )
+ 
+-add_executable(vm_template_standalone
++add_library(vm_template_standalone SHARED
+     src/template.cpp
+ )
+ 
+diff --git a/loki/translator/src/input_program.cpp b/loki/translator/src/input_program.cpp
+index 2ce4676..52de3c3 100644
+--- a/loki/translator/src/input_program.cpp
++++ b/loki/translator/src/input_program.cpp
+@@ -1,8 +1,13 @@
++/* example cmdline:
++ * ./tmp-vm 0 ASDFJ ASDFJ DUMMMY
++ * ./orig_exe 0 ASDFJ ASDFJ DUMMMY
++ */
+ 
+ #include <cstdint>
+ #include <cstdio>
+ #include <cstring>
+ #include <chrono>
++#include <iostream>
+ 
+ #include <string>
+ 
+@@ -14,534 +19,253 @@ struct Foo
+ extern Foo foo;
+ 
+ #define ENCRYPTION_MODE 1
++// Source: /libdvdcss/src/css.c:992 Git-tag: 1.4.3-1-g812aacb
++#define DVD_KEY_SIZE 5
+ 
+-/* constant key schedule arrays */
+-const int key_shift_sizes_glob[] = {-1, 1, 1, 2, 2, 2, 2, 2, 2, 1, 2, 2, 2, 2, 2, 2, 1};
+-
+-const int initial_key_permutation_glob[] = {57, 49, 41, 33, 25, 17, 9,
+-                                  1, 58, 50, 42, 34, 26, 18,
+-                                  10, 2, 59, 51, 43, 35, 27,
+-                                  19, 11, 3, 60, 52, 44, 36,
+-                                  63, 55, 47, 39, 31, 23, 15,
+-                                  7, 62, 54, 46, 38, 30, 22,
+-                                  14, 6, 61, 53, 45, 37, 29,
+-                                  21, 13, 5, 28, 20, 12, 4};
+-
+-const int sub_key_permutation_glob[] = {14, 17, 11, 24, 1, 5,
+-                               3, 28, 15, 6, 21, 10,
+-                               23, 19, 12, 4, 26, 8,
+-                               16, 7, 27, 20, 13, 2,
+-                               41, 52, 31, 37, 47, 55,
+-                               30, 40, 51, 45, 33, 48,
+-                               44, 49, 39, 56, 34, 53,
+-                               46, 42, 50, 36, 29, 32};
+-
+-/* constant encryption arrays */ 
+-const int initial_message_permutation_glob[] = {58, 50, 42, 34, 26, 18, 10, 2,
+-                                       60, 52, 44, 36, 28, 20, 12, 4,
+-                                       62, 54, 46, 38, 30, 22, 14, 6,
+-                                       64, 56, 48, 40, 32, 24, 16, 8,
+-                                       57, 49, 41, 33, 25, 17, 9, 1,
+-                                       59, 51, 43, 35, 27, 19, 11, 3,
+-                                       61, 53, 45, 37, 29, 21, 13, 5,
+-                                       63, 55, 47, 39, 31, 23, 15, 7};
+-
+-const int message_expansion_glob[] = {32, 1, 2, 3, 4, 5,
+-                             4, 5, 6, 7, 8, 9,
+-                             8, 9, 10, 11, 12, 13,
+-                             12, 13, 14, 15, 16, 17,
+-                             16, 17, 18, 19, 20, 21,
+-                             20, 21, 22, 23, 24, 25,
+-                             24, 25, 26, 27, 28, 29,
+-                             28, 29, 30, 31, 32, 1};
+-
+-const int S1_glob[] = {14, 4, 13, 1, 2, 15, 11, 8, 3, 10, 6, 12, 5, 9, 0, 7,
+-              0, 15, 7, 4, 14, 2, 13, 1, 10, 6, 12, 11, 9, 5, 3, 8,
+-              4, 1, 14, 8, 13, 6, 2, 11, 15, 12, 9, 7, 3, 10, 5, 0,
+-              15, 12, 8, 2, 4, 9, 1, 7, 5, 11, 3, 14, 10, 0, 6, 13};
+-
+-const int S2_glob[] = {15, 1, 8, 14, 6, 11, 3, 4, 9, 7, 2, 13, 12, 0, 5, 10,
+-              3, 13, 4, 7, 15, 2, 8, 14, 12, 0, 1, 10, 6, 9, 11, 5,
+-              0, 14, 7, 11, 10, 4, 13, 1, 5, 8, 12, 6, 9, 3, 2, 15,
+-              13, 8, 10, 1, 3, 15, 4, 2, 11, 6, 7, 12, 0, 5, 14, 9};
+-
+-const int S3_glob[] = {10, 0, 9, 14, 6, 3, 15, 5, 1, 13, 12, 7, 11, 4, 2, 8,
+-              13, 7, 0, 9, 3, 4, 6, 10, 2, 8, 5, 14, 12, 11, 15, 1,
+-              13, 6, 4, 9, 8, 15, 3, 0, 11, 1, 2, 12, 5, 10, 14, 7,
+-              1, 10, 13, 0, 6, 9, 8, 7, 4, 15, 14, 3, 11, 5, 2, 12};
+-
+-const int S4_glob[] = {7, 13, 14, 3, 0, 6, 9, 10, 1, 2, 8, 5, 11, 12, 4, 15,
+-              13, 8, 11, 5, 6, 15, 0, 3, 4, 7, 2, 12, 1, 10, 14, 9,
+-              10, 6, 9, 0, 12, 11, 7, 13, 15, 1, 3, 14, 5, 2, 8, 4,
+-              3, 15, 0, 6, 10, 1, 13, 8, 9, 4, 5, 11, 12, 7, 2, 14};
+-
+-const int S5_glob[] = {2, 12, 4, 1, 7, 10, 11, 6, 8, 5, 3, 15, 13, 0, 14, 9,
+-              14, 11, 2, 12, 4, 7, 13, 1, 5, 0, 15, 10, 3, 9, 8, 6,
+-              4, 2, 1, 11, 10, 13, 7, 8, 15, 9, 12, 5, 6, 3, 0, 14,
+-              11, 8, 12, 7, 1, 14, 2, 13, 6, 15, 0, 9, 10, 4, 5, 3};
+-
+-const int S6_glob[] = {12, 1, 10, 15, 9, 2, 6, 8, 0, 13, 3, 4, 14, 7, 5, 11,
+-              10, 15, 4, 2, 7, 12, 9, 5, 6, 1, 13, 14, 0, 11, 3, 8,
+-              9, 14, 15, 5, 2, 8, 12, 3, 7, 0, 4, 10, 1, 13, 11, 6,
+-              4, 3, 2, 12, 9, 5, 15, 10, 11, 14, 1, 7, 6, 0, 8, 13};
+-
+-const int S7_glob[] = {4, 11, 2, 14, 15, 0, 8, 13, 3, 12, 9, 7, 5, 10, 6, 1,
+-              13, 0, 11, 7, 4, 9, 1, 10, 14, 3, 5, 12, 2, 15, 8, 6,
+-              1, 4, 11, 13, 12, 3, 7, 14, 10, 15, 6, 8, 0, 5, 9, 2,
+-              6, 11, 13, 8, 1, 4, 10, 7, 9, 5, 0, 15, 14, 2, 3, 12};
+-
+-const int S8_glob[] = {13, 2, 8, 4, 6, 15, 11, 1, 10, 9, 3, 14, 5, 0, 12, 7,
+-              1, 15, 13, 8, 10, 3, 7, 4, 12, 5, 6, 11, 0, 14, 9, 2,
+-              7, 11, 4, 1, 9, 12, 14, 2, 0, 6, 10, 13, 15, 3, 5, 8,
+-              2, 1, 14, 7, 4, 10, 8, 13, 15, 12, 9, 0, 3, 5, 6, 11};
+-
+-const int right_sub_message_permutation_glob[] = {16, 7, 20, 21,
+-                                         29, 12, 28, 17,
+-                                         1, 15, 23, 26,
+-                                         5, 18, 31, 10,
+-                                         2, 8, 24, 14,
+-                                         32, 27, 3, 9,
+-                                         19, 13, 30, 6,
+-                                         22, 11, 4, 25};
+-
+-const int final_message_permutation_glob[] = {40, 8, 48, 16, 56, 24, 64, 32,
+-                                     39, 7, 47, 15, 55, 23, 63, 31,
+-                                     38, 6, 46, 14, 54, 22, 62, 30,
+-                                     37, 5, 45, 13, 53, 21, 61, 29,
+-                                     36, 4, 44, 12, 52, 20, 60, 28,
+-                                     35, 3, 43, 11, 51, 19, 59, 27,
+-                                     34, 2, 42, 10, 50, 18, 58, 26,
+-                                     33, 1, 41, 9, 49, 17, 57, 25};
+-
+-typedef struct
++static const uint8_t p_css_tab1_glob[ 256 ] =
+ {
+-  unsigned char k[8] = {};
+-  unsigned char c[4] = {};
+-  unsigned char d[4] = {};
+-} key_set;
++    0x33, 0x73, 0x3b, 0x26, 0x63, 0x23, 0x6b, 0x76,
++    0x3e, 0x7e, 0x36, 0x2b, 0x6e, 0x2e, 0x66, 0x7b,
++    0xd3, 0x93, 0xdb, 0x06, 0x43, 0x03, 0x4b, 0x96,
++    0xde, 0x9e, 0xd6, 0x0b, 0x4e, 0x0e, 0x46, 0x9b,
++    0x57, 0x17, 0x5f, 0x82, 0xc7, 0x87, 0xcf, 0x12,
++    0x5a, 0x1a, 0x52, 0x8f, 0xca, 0x8a, 0xc2, 0x1f,
++    0xd9, 0x99, 0xd1, 0x00, 0x49, 0x09, 0x41, 0x90,
++    0xd8, 0x98, 0xd0, 0x01, 0x48, 0x08, 0x40, 0x91,
++    0x3d, 0x7d, 0x35, 0x24, 0x6d, 0x2d, 0x65, 0x74,
++    0x3c, 0x7c, 0x34, 0x25, 0x6c, 0x2c, 0x64, 0x75,
++    0xdd, 0x9d, 0xd5, 0x04, 0x4d, 0x0d, 0x45, 0x94,
++    0xdc, 0x9c, 0xd4, 0x05, 0x4c, 0x0c, 0x44, 0x95,
++    0x59, 0x19, 0x51, 0x80, 0xc9, 0x89, 0xc1, 0x10,
++    0x58, 0x18, 0x50, 0x81, 0xc8, 0x88, 0xc0, 0x11,
++    0xd7, 0x97, 0xdf, 0x02, 0x47, 0x07, 0x4f, 0x92,
++    0xda, 0x9a, 0xd2, 0x0f, 0x4a, 0x0a, 0x42, 0x9f,
++    0x53, 0x13, 0x5b, 0x86, 0xc3, 0x83, 0xcb, 0x16,
++    0x5e, 0x1e, 0x56, 0x8b, 0xce, 0x8e, 0xc6, 0x1b,
++    0xb3, 0xf3, 0xbb, 0xa6, 0xe3, 0xa3, 0xeb, 0xf6,
++    0xbe, 0xfe, 0xb6, 0xab, 0xee, 0xae, 0xe6, 0xfb,
++    0x37, 0x77, 0x3f, 0x22, 0x67, 0x27, 0x6f, 0x72,
++    0x3a, 0x7a, 0x32, 0x2f, 0x6a, 0x2a, 0x62, 0x7f,
++    0xb9, 0xf9, 0xb1, 0xa0, 0xe9, 0xa9, 0xe1, 0xf0,
++    0xb8, 0xf8, 0xb0, 0xa1, 0xe8, 0xa8, 0xe0, 0xf1,
++    0x5d, 0x1d, 0x55, 0x84, 0xcd, 0x8d, 0xc5, 0x14,
++    0x5c, 0x1c, 0x54, 0x85, 0xcc, 0x8c, 0xc4, 0x15,
++    0xbd, 0xfd, 0xb5, 0xa4, 0xed, 0xad, 0xe5, 0xf4,
++    0xbc, 0xfc, 0xb4, 0xa5, 0xec, 0xac, 0xe4, 0xf5,
++    0x39, 0x79, 0x31, 0x20, 0x69, 0x29, 0x61, 0x70,
++    0x38, 0x78, 0x30, 0x21, 0x68, 0x28, 0x60, 0x71,
++    0xb7, 0xf7, 0xbf, 0xa2, 0xe7, 0xa7, 0xef, 0xf2,
++    0xba, 0xfa, 0xb2, 0xaf, 0xea, 0xaa, 0xe2, 0xff
++};
+ 
+-// Important: encrypt mode only!
+-// len(input_str) must be at least 8 bytes (msg to encrypt), otherwise => segfault
+-extern "C" int target_function(uint8_t *input_str, uint8_t *key_input)
++static const uint8_t p_css_tab2_glob[ 256 ] =
+ {
++    0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
++    0x09, 0x08, 0x0b, 0x0a, 0x0d, 0x0c, 0x0f, 0x0e,
++    0x12, 0x13, 0x10, 0x11, 0x16, 0x17, 0x14, 0x15,
++    0x1b, 0x1a, 0x19, 0x18, 0x1f, 0x1e, 0x1d, 0x1c,
++    0x24, 0x25, 0x26, 0x27, 0x20, 0x21, 0x22, 0x23,
++    0x2d, 0x2c, 0x2f, 0x2e, 0x29, 0x28, 0x2b, 0x2a,
++    0x36, 0x37, 0x34, 0x35, 0x32, 0x33, 0x30, 0x31,
++    0x3f, 0x3e, 0x3d, 0x3c, 0x3b, 0x3a, 0x39, 0x38,
++    0x49, 0x48, 0x4b, 0x4a, 0x4d, 0x4c, 0x4f, 0x4e,
++    0x40, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47,
++    0x5b, 0x5a, 0x59, 0x58, 0x5f, 0x5e, 0x5d, 0x5c,
++    0x52, 0x53, 0x50, 0x51, 0x56, 0x57, 0x54, 0x55,
++    0x6d, 0x6c, 0x6f, 0x6e, 0x69, 0x68, 0x6b, 0x6a,
++    0x64, 0x65, 0x66, 0x67, 0x60, 0x61, 0x62, 0x63,
++    0x7f, 0x7e, 0x7d, 0x7c, 0x7b, 0x7a, 0x79, 0x78,
++    0x76, 0x77, 0x74, 0x75, 0x72, 0x73, 0x70, 0x71,
++    0x92, 0x93, 0x90, 0x91, 0x96, 0x97, 0x94, 0x95,
++    0x9b, 0x9a, 0x99, 0x98, 0x9f, 0x9e, 0x9d, 0x9c,
++    0x80, 0x81, 0x82, 0x83, 0x84, 0x85, 0x86, 0x87,
++    0x89, 0x88, 0x8b, 0x8a, 0x8d, 0x8c, 0x8f, 0x8e,
++    0xb6, 0xb7, 0xb4, 0xb5, 0xb2, 0xb3, 0xb0, 0xb1,
++    0xbf, 0xbe, 0xbd, 0xbc, 0xbb, 0xba, 0xb9, 0xb8,
++    0xa4, 0xa5, 0xa6, 0xa7, 0xa0, 0xa1, 0xa2, 0xa3,
++    0xad, 0xac, 0xaf, 0xae, 0xa9, 0xa8, 0xab, 0xaa,
++    0xdb, 0xda, 0xd9, 0xd8, 0xdf, 0xde, 0xdd, 0xdc,
++    0xd2, 0xd3, 0xd0, 0xd1, 0xd6, 0xd7, 0xd4, 0xd5,
++    0xc9, 0xc8, 0xcb, 0xca, 0xcd, 0xcc, 0xcf, 0xce,
++    0xc0, 0xc1, 0xc2, 0xc3, 0xc4, 0xc5, 0xc6, 0xc7,
++    0xff, 0xfe, 0xfd, 0xfc, 0xfb, 0xfa, 0xf9, 0xf8,
++    0xf6, 0xf7, 0xf4, 0xf5, 0xf2, 0xf3, 0xf0, 0xf1,
++    0xed, 0xec, 0xef, 0xee, 0xe9, 0xe8, 0xeb, 0xea,
++    0xe4, 0xe5, 0xe6, 0xe7, 0xe0, 0xe1, 0xe2, 0xe3
++};
+ 
+-  int initial_message_permutation[64];
+-  int message_expansion[48];
+-  int S1[64];
+-  int S2[64];
+-  int S3[64];
+-  int S4[64];
+-  int S5[64];
+-  int S6[64];
+-  int S7[64];
+-  int S8[64];
+-  int right_sub_message_permutation[32];
+-  int final_message_permutation[64];
+-  // key_set key_sets[17];
+-
+-  for (uint32_t i = 0; i < 64; ++i)
+-  {
+-    initial_message_permutation[i] = initial_message_permutation_glob[i];
+-  }
+-
+-  for (uint32_t i = 0; i < 48; ++i)
+-  {
+-    message_expansion[i] = message_expansion_glob[i];
+-  }
+-
+-  for (uint32_t i = 0; i < 64; ++i)
+-  {
+-    S1[i] = S1_glob[i];
+-    S2[i] = S2_glob[i];
+-    S3[i] = S3_glob[i];
+-    S4[i] = S4_glob[i];
+-    S5[i] = S5_glob[i];
+-    S6[i] = S6_glob[i];
+-    S7[i] = S7_glob[i];
+-    S8[i] = S8_glob[i];
+-  }
+-
+-  for (uint32_t i = 0; i < 32; ++i)
+-  {
+-    right_sub_message_permutation[i] = right_sub_message_permutation_glob[i];
+-  }
+-
+-  for (uint32_t i = 0; i < 64; ++i)
+-  {
+-    final_message_permutation[i] = final_message_permutation_glob[i];
+-  }
+-
+-  /* Initialize key schedule constant arrays: */
+-  int key_shift_sizes[17];
+-  int initial_key_permutation[56];
+-  int sub_key_permutation[48];
+-
+-  for (int i = 0; i < 17; i++)
+-  {
+-    key_shift_sizes[i] = key_shift_sizes_glob[i];
+-  } 
+-
+-  for (int i = 0; i < 56; i++)
+-  {
+-    initial_key_permutation[i] = initial_key_permutation_glob[i];
+-  } 
+-
+-  for (int i = 0; i < 48; i++)
+-  {
+-    sub_key_permutation[i] = sub_key_permutation_glob[i];
+-  } 
+-  
+-  uint8_t *main_key = key_input;
+-
+-
+-  // key_set key_sets[17] = {}; // we can't handle that struct's padding/alignment
+-  uint8_t key_sets_k[17][8] = {0, 0, 0, 0, 0, 0, 0, 0};
+-  uint8_t key_sets_c[17][4] = {0, 0, 0, 0};
+-  uint8_t key_sets_d[17][4] = {0, 0, 0, 0};
+-
+-  int i, j;
+-  int shift_size;
+-  unsigned char shift_byte, first_shift_bits, second_shift_bits, third_shift_bits, fourth_shift_bits;
+-
+-  for (i = 0; i < 8; i++)
+-  {
+-      key_sets_k[0][i] = 0;
+-  }
+-
+-  for (i = 0; i < 56; i++)
+-  {
+-      shift_size = initial_key_permutation[i];
+-      shift_byte = 0x80 >> ((shift_size - 1) % 8);
+-      shift_byte &= main_key[(shift_size - 1) / 8];
+-      shift_byte <<= ((shift_size - 1) % 8);
+-
+-      key_sets_k[0][i / 8] |= (shift_byte >> i % 8);
+-  }
+-
+-  for (i = 0; i < 3; i++)
+-  {
+-      key_sets_c[0][i] = key_sets_k[0][i];
+-  }
+-
+-  key_sets_c[0][3] = key_sets_k[0][3] & 0xF0;
+-
+-  for (i = 0; i < 3; i++)
+-  {
+-      key_sets_d[0][i] = (key_sets_k[0][i + 3] & 0x0F) << 4;
+-      key_sets_d[0][i] |= (key_sets_k[0][i + 4] & 0xF0) >> 4;
+-  }
+-
+-  key_sets_d[0][3] = (key_sets_k[0][6] & 0x0F) << 4;
+-
+-  for (i = 1; i < 17; i++)
+-  {
+-      for (j = 0; j < 4; j++)
+-      {
+-          key_sets_c[i][j] = key_sets_c[i - 1][j];
+-          key_sets_d[i][j] = key_sets_d[i - 1][j];
+-      }
+-
+-      shift_size = key_shift_sizes[i];
+-      if (shift_size == 1)
+-      {
+-          shift_byte = 0x80;
+-      }
+-      else
+-      {
+-          shift_byte = 0xC0;
+-      }
+-
+-      /* IF delete:
+-      int if_res = (shift_size == 1);
+-      shift_byte = 0xC0 - (if_res*0x40); // if shiftsize == 1 then: 0xC0 - 0x40 = 0x80 , else 0xC0
+-      */
+-
+-      // Process C
+-      first_shift_bits = shift_byte & key_sets_c[i][0];
+-      second_shift_bits = shift_byte & key_sets_c[i][1];
+-      third_shift_bits = shift_byte & key_sets_c[i][2];
+-      fourth_shift_bits = shift_byte & key_sets_c[i][3];
+-
+-      key_sets_c[i][0] <<= shift_size;
+-      key_sets_c[i][0] |= (second_shift_bits >> (8 - shift_size));
+-
+-      key_sets_c[i][1] <<= shift_size;
+-      key_sets_c[i][1] |= (third_shift_bits >> (8 - shift_size));
+-
+-      key_sets_c[i][2] <<= shift_size;
+-      key_sets_c[i][2] |= (fourth_shift_bits >> (8 - shift_size));
+-
+-      key_sets_c[i][3] <<= shift_size;
+-      key_sets_c[i][3] |= (first_shift_bits >> (4 - shift_size));
+-
+-      // Process D
+-      first_shift_bits = shift_byte & key_sets_d[i][0];
+-      second_shift_bits = shift_byte & key_sets_d[i][1];
+-      third_shift_bits = shift_byte & key_sets_d[i][2];
+-      fourth_shift_bits = shift_byte & key_sets_d[i][3];
+-
+-      key_sets_d[i][0] <<= shift_size;
+-      key_sets_d[i][0] |= (second_shift_bits >> (8 - shift_size));
+-
+-      key_sets_d[i][1] <<= shift_size;
+-      key_sets_d[i][1] |= (third_shift_bits >> (8 - shift_size));
+-
+-      key_sets_d[i][2] <<= shift_size;
+-      key_sets_d[i][2] |= (fourth_shift_bits >> (8 - shift_size));
+-
+-      key_sets_d[i][3] <<= shift_size;
+-      key_sets_d[i][3] |= (first_shift_bits >> (4 - shift_size));
+-
+-      for (j = 0; j < 48; j++)
+-      {
+-          shift_size = sub_key_permutation[j];
+-          // OLD
+-          if (shift_size <= 28)
+-          {
+-              shift_byte = 0x80 >> ((shift_size - 1) % 8);
+-              shift_byte &= key_sets_c[i][(shift_size - 1) / 8];
+-              shift_byte <<= ((shift_size - 1) % 8);
+-          }
+-          else
+-          {
+-              shift_byte = 0x80 >> ((shift_size - 29) % 8);
+-              shift_byte &= key_sets_d[i][(shift_size - 29) / 8];
+-              shift_byte <<= ((shift_size - 29) % 8);
+-          }
+-          // NEW
+-          /* IF delete
+-          uint8_t if_b = (shift_size > 28);
+-          uint8_t if_val = if_b * 28;
+-
+-          shift_byte = 0x80 >> ((shift_size - (1+if_val)) % 8);
+-          shift_byte &= key_sets[i].c[(shift_size - (1+if_val)) / 8];
+-          shift_byte <<= ((shift_size - (1+if_val)) % 8);
+-          */
+-
+-          key_sets_k[i][j / 8] |= (shift_byte >> j % 8);
+-      }
+-  }
+-
+-  uint8_t *message_piece = input_str; /*{ 0x41,
+-                           0x41,
+-                           0x41,
+-                           0x41,
+-                           0x41,
+-                           0x41,
+-                           0x41,
+-                           0x41 }; //AAAAAAAA*/
+-
+-  // uint32_t mode = ENCRYPTION_MODE;
+-  uint8_t processed_piece[8]; // output / encrypted block
+-  int k;
+-  unsigned char initial_permutation[8];
+-  
+-  //memset(initial_permutation, 0, 8);
+-  //memset(processed_piece, 0, 8);
+-  for (i = 0; i < 8; i++) {
+-    initial_permutation[i] = 0;
+-    processed_piece[i] = 0;
+-  }
+-
+-  for (i = 0; i < 64; i++)
+-  {
+-    shift_size = initial_message_permutation[i];
+-    shift_byte = 0x80 >> ((shift_size - 1) % 8);
+-    shift_byte &= message_piece[(shift_size - 1) / 8];
+-    shift_byte <<= ((shift_size - 1) % 8);
+-
+-    initial_permutation[i / 8] |= (shift_byte >> i % 8);
+-  }
+-
+-  unsigned char l[4], r[4];
+-  for (i = 0; i < 4; i++)
+-  {
+-    l[i] = initial_permutation[i];
+-    r[i] = initial_permutation[i + 4];
+-  }
+-
+-  unsigned char ln[4], rn[4], er[6], ser[4];
++static const uint8_t p_css_tab3_glob[ 512 ] =
++{
++    0x00, 0x24, 0x49, 0x6d, 0x92, 0xb6, 0xdb, 0xff,
++    0x00, 0x24, 0x49, 0x6d, 0x92, 0xb6, 0xdb, 0xff,
++    0x00, 0x24, 0x49, 0x6d, 0x92, 0xb6, 0xdb, 0xff,
++    0x00, 0x24, 0x49, 0x6d, 0x92, 0xb6, 0xdb, 0xff,
++    0x00, 0x24, 0x49, 0x6d, 0x92, 0xb6, 0xdb, 0xff,
++    0x00, 0x24, 0x49, 0x6d, 0x92, 0xb6, 0xdb, 0xff,
++    0x00, 0x24, 0x49, 0x6d, 0x92, 0xb6, 0xdb, 0xff,
++    0x00, 0x24, 0x49, 0x6d, 0x92, 0xb6, 0xdb, 0xff,
++    0x00, 0x24, 0x49, 0x6d, 0x92, 0xb6, 0xdb, 0xff,
++    0x00, 0x24, 0x49, 0x6d, 0x92, 0xb6, 0xdb, 0xff,
++    0x00, 0x24, 0x49, 0x6d, 0x92, 0xb6, 0xdb, 0xff,
++    0x00, 0x24, 0x49, 0x6d, 0x92, 0xb6, 0xdb, 0xff,
++    0x00, 0x24, 0x49, 0x6d, 0x92, 0xb6, 0xdb, 0xff,
++    0x00, 0x24, 0x49, 0x6d, 0x92, 0xb6, 0xdb, 0xff,
++    0x00, 0x24, 0x49, 0x6d, 0x92, 0xb6, 0xdb, 0xff,
++    0x00, 0x24, 0x49, 0x6d, 0x92, 0xb6, 0xdb, 0xff,
++    0x00, 0x24, 0x49, 0x6d, 0x92, 0xb6, 0xdb, 0xff,
++    0x00, 0x24, 0x49, 0x6d, 0x92, 0xb6, 0xdb, 0xff,
++    0x00, 0x24, 0x49, 0x6d, 0x92, 0xb6, 0xdb, 0xff,
++    0x00, 0x24, 0x49, 0x6d, 0x92, 0xb6, 0xdb, 0xff,
++    0x00, 0x24, 0x49, 0x6d, 0x92, 0xb6, 0xdb, 0xff,
++    0x00, 0x24, 0x49, 0x6d, 0x92, 0xb6, 0xdb, 0xff,
++    0x00, 0x24, 0x49, 0x6d, 0x92, 0xb6, 0xdb, 0xff,
++    0x00, 0x24, 0x49, 0x6d, 0x92, 0xb6, 0xdb, 0xff,
++    0x00, 0x24, 0x49, 0x6d, 0x92, 0xb6, 0xdb, 0xff,
++    0x00, 0x24, 0x49, 0x6d, 0x92, 0xb6, 0xdb, 0xff,
++    0x00, 0x24, 0x49, 0x6d, 0x92, 0xb6, 0xdb, 0xff,
++    0x00, 0x24, 0x49, 0x6d, 0x92, 0xb6, 0xdb, 0xff,
++    0x00, 0x24, 0x49, 0x6d, 0x92, 0xb6, 0xdb, 0xff,
++    0x00, 0x24, 0x49, 0x6d, 0x92, 0xb6, 0xdb, 0xff,
++    0x00, 0x24, 0x49, 0x6d, 0x92, 0xb6, 0xdb, 0xff,
++    0x00, 0x24, 0x49, 0x6d, 0x92, 0xb6, 0xdb, 0xff,
++    0x00, 0x24, 0x49, 0x6d, 0x92, 0xb6, 0xdb, 0xff,
++    0x00, 0x24, 0x49, 0x6d, 0x92, 0xb6, 0xdb, 0xff,
++    0x00, 0x24, 0x49, 0x6d, 0x92, 0xb6, 0xdb, 0xff,
++    0x00, 0x24, 0x49, 0x6d, 0x92, 0xb6, 0xdb, 0xff,
++    0x00, 0x24, 0x49, 0x6d, 0x92, 0xb6, 0xdb, 0xff,
++    0x00, 0x24, 0x49, 0x6d, 0x92, 0xb6, 0xdb, 0xff,
++    0x00, 0x24, 0x49, 0x6d, 0x92, 0xb6, 0xdb, 0xff,
++    0x00, 0x24, 0x49, 0x6d, 0x92, 0xb6, 0xdb, 0xff,
++    0x00, 0x24, 0x49, 0x6d, 0x92, 0xb6, 0xdb, 0xff,
++    0x00, 0x24, 0x49, 0x6d, 0x92, 0xb6, 0xdb, 0xff,
++    0x00, 0x24, 0x49, 0x6d, 0x92, 0xb6, 0xdb, 0xff,
++    0x00, 0x24, 0x49, 0x6d, 0x92, 0xb6, 0xdb, 0xff,
++    0x00, 0x24, 0x49, 0x6d, 0x92, 0xb6, 0xdb, 0xff,
++    0x00, 0x24, 0x49, 0x6d, 0x92, 0xb6, 0xdb, 0xff,
++    0x00, 0x24, 0x49, 0x6d, 0x92, 0xb6, 0xdb, 0xff,
++    0x00, 0x24, 0x49, 0x6d, 0x92, 0xb6, 0xdb, 0xff,
++    0x00, 0x24, 0x49, 0x6d, 0x92, 0xb6, 0xdb, 0xff,
++    0x00, 0x24, 0x49, 0x6d, 0x92, 0xb6, 0xdb, 0xff,
++    0x00, 0x24, 0x49, 0x6d, 0x92, 0xb6, 0xdb, 0xff,
++    0x00, 0x24, 0x49, 0x6d, 0x92, 0xb6, 0xdb, 0xff,
++    0x00, 0x24, 0x49, 0x6d, 0x92, 0xb6, 0xdb, 0xff,
++    0x00, 0x24, 0x49, 0x6d, 0x92, 0xb6, 0xdb, 0xff,
++    0x00, 0x24, 0x49, 0x6d, 0x92, 0xb6, 0xdb, 0xff,
++    0x00, 0x24, 0x49, 0x6d, 0x92, 0xb6, 0xdb, 0xff,
++    0x00, 0x24, 0x49, 0x6d, 0x92, 0xb6, 0xdb, 0xff,
++    0x00, 0x24, 0x49, 0x6d, 0x92, 0xb6, 0xdb, 0xff,
++    0x00, 0x24, 0x49, 0x6d, 0x92, 0xb6, 0xdb, 0xff,
++    0x00, 0x24, 0x49, 0x6d, 0x92, 0xb6, 0xdb, 0xff,
++    0x00, 0x24, 0x49, 0x6d, 0x92, 0xb6, 0xdb, 0xff,
++    0x00, 0x24, 0x49, 0x6d, 0x92, 0xb6, 0xdb, 0xff,
++    0x00, 0x24, 0x49, 0x6d, 0x92, 0xb6, 0xdb, 0xff,
++    0x00, 0x24, 0x49, 0x6d, 0x92, 0xb6, 0xdb, 0xff
++};
+ 
+-  int key_index;
+-  for (k = 1; k <= 14; k++)
+-  {
+-    //memcpy(ln, r, 4);
+-    for (int m = 0; m < 4; m++)
+-      ln[m] = r[m];
++static const uint8_t p_css_tab4_glob[ 256 ] =
++{
++    0x00, 0x80, 0x40, 0xc0, 0x20, 0xa0, 0x60, 0xe0,
++    0x10, 0x90, 0x50, 0xd0, 0x30, 0xb0, 0x70, 0xf0,
++    0x08, 0x88, 0x48, 0xc8, 0x28, 0xa8, 0x68, 0xe8,
++    0x18, 0x98, 0x58, 0xd8, 0x38, 0xb8, 0x78, 0xf8,
++    0x04, 0x84, 0x44, 0xc4, 0x24, 0xa4, 0x64, 0xe4,
++    0x14, 0x94, 0x54, 0xd4, 0x34, 0xb4, 0x74, 0xf4,
++    0x0c, 0x8c, 0x4c, 0xcc, 0x2c, 0xac, 0x6c, 0xec,
++    0x1c, 0x9c, 0x5c, 0xdc, 0x3c, 0xbc, 0x7c, 0xfc,
++    0x02, 0x82, 0x42, 0xc2, 0x22, 0xa2, 0x62, 0xe2,
++    0x12, 0x92, 0x52, 0xd2, 0x32, 0xb2, 0x72, 0xf2,
++    0x0a, 0x8a, 0x4a, 0xca, 0x2a, 0xaa, 0x6a, 0xea,
++    0x1a, 0x9a, 0x5a, 0xda, 0x3a, 0xba, 0x7a, 0xfa,
++    0x06, 0x86, 0x46, 0xc6, 0x26, 0xa6, 0x66, 0xe6,
++    0x16, 0x96, 0x56, 0xd6, 0x36, 0xb6, 0x76, 0xf6,
++    0x0e, 0x8e, 0x4e, 0xce, 0x2e, 0xae, 0x6e, 0xee,
++    0x1e, 0x9e, 0x5e, 0xde, 0x3e, 0xbe, 0x7e, 0xfe,
++    0x01, 0x81, 0x41, 0xc1, 0x21, 0xa1, 0x61, 0xe1,
++    0x11, 0x91, 0x51, 0xd1, 0x31, 0xb1, 0x71, 0xf1,
++    0x09, 0x89, 0x49, 0xc9, 0x29, 0xa9, 0x69, 0xe9,
++    0x19, 0x99, 0x59, 0xd9, 0x39, 0xb9, 0x79, 0xf9,
++    0x05, 0x85, 0x45, 0xc5, 0x25, 0xa5, 0x65, 0xe5,
++    0x15, 0x95, 0x55, 0xd5, 0x35, 0xb5, 0x75, 0xf5,
++    0x0d, 0x8d, 0x4d, 0xcd, 0x2d, 0xad, 0x6d, 0xed,
++    0x1d, 0x9d, 0x5d, 0xdd, 0x3d, 0xbd, 0x7d, 0xfd,
++    0x03, 0x83, 0x43, 0xc3, 0x23, 0xa3, 0x63, 0xe3,
++    0x13, 0x93, 0x53, 0xd3, 0x33, 0xb3, 0x73, 0xf3,
++    0x0b, 0x8b, 0x4b, 0xcb, 0x2b, 0xab, 0x6b, 0xeb,
++    0x1b, 0x9b, 0x5b, 0xdb, 0x3b, 0xbb, 0x7b, 0xfb,
++    0x07, 0x87, 0x47, 0xc7, 0x27, 0xa7, 0x67, 0xe7,
++    0x17, 0x97, 0x57, 0xd7, 0x37, 0xb7, 0x77, 0xf7,
++    0x0f, 0x8f, 0x4f, 0xcf, 0x2f, 0xaf, 0x6f, 0xef,
++    0x1f, 0x9f, 0x5f, 0xdf, 0x3f, 0xbf, 0x7f, 0xff
++};
+ 
+-    //memset(er, 0, 6);
+-    for (int m = 0; m < 6; m++)
+-          er[m] = 0;
+ 
+-    for (i = 0; i < 48; i++)
+-    {
+-      shift_size = message_expansion[i];
+-      shift_byte = 0x80 >> ((shift_size - 1) % 8);
+-      shift_byte &= r[(shift_size - 1) / 8];
+-      shift_byte <<= ((shift_size - 1) % 8);
+-
+-      er[i / 8] |= (shift_byte >> i % 8);
++extern "C" void target_function( uint8_t invert, uint8_t *p_key, uint8_t *p_crypted, uint8_t *p_result ) {
++    unsigned int    i_lfsr1_lo;
++    unsigned int    i_lfsr1_hi;
++    unsigned int    i_lfsr0;
++    unsigned int    i_combined;
++    uint8_t         o_lfsr0;
++    uint8_t         o_lfsr1;
++    uint8_t         k[5];
++    int             i;
++    uint8_t p_css_tab1[ 256 ];
++    uint8_t p_css_tab2[ 256 ];
++    uint8_t p_css_tab3[ 512 ];
++    uint8_t p_css_tab4[ 256 ];
++
++    for (i=0; i<256; i++) {
++        p_css_tab1[i] = p_css_tab1_glob[i];
++        p_css_tab2[i] = p_css_tab2_glob[i];
++        p_css_tab4[i] = p_css_tab4_glob[i];
+     }
+ 
+-    /*if (mode == DECRYPTION_MODE)
+-    {
+-      key_index = 17 - k;
++    for (i=0; i<512; i++) {
++        p_css_tab3[i] = p_css_tab3_glob[i];
+     }
+-    else
+-    {*/
+-    key_index = k;
+-    //}
+ 
+-    for (i = 0; i < 6; i++)
+-    {
+-      er[i] ^= key_sets_k[key_index][i];
+-    }
++    i_lfsr1_lo = p_key[0] | 0x100;
++    i_lfsr1_hi = p_key[1];
+ 
+-    unsigned char row, column;
++    i_lfsr0    = ( ( p_key[4] << 17 )
++                 | ( p_key[3] << 9 )
++                 | ( p_key[2] << 1 ) )
++                 + 8 - ( p_key[2] & 7 );
++    i_lfsr0    = ( p_css_tab4[i_lfsr0 & 0xff] << 24 ) |
++                 ( p_css_tab4[( i_lfsr0 >> 8 ) & 0xff] << 16 ) |
++                 ( p_css_tab4[( i_lfsr0 >> 16 ) & 0xff] << 8 ) |
++                   p_css_tab4[( i_lfsr0 >> 24 ) & 0xff];
+ 
+-    for (i = 0; i < 4; i++)
++    i_combined = 0;
++    for( i = 0 ; i < DVD_KEY_SIZE ; ++i )
+     {
+-      ser[i] = 0;
++        o_lfsr1     = p_css_tab2[i_lfsr1_hi] ^ p_css_tab3[i_lfsr1_lo];
++        i_lfsr1_hi  = i_lfsr1_lo >> 1;
++        i_lfsr1_lo  = ( ( i_lfsr1_lo & 1 ) << 8 ) ^ o_lfsr1;
++        o_lfsr1     = p_css_tab4[o_lfsr1];
++
++        o_lfsr0 = ((((((( i_lfsr0 >> 8 ) ^ i_lfsr0 ) >> 1 )
++                        ^ i_lfsr0 ) >> 3 ) ^ i_lfsr0 ) >> 7 );
++        i_lfsr0 = ( i_lfsr0 >> 8 ) | ( o_lfsr0 << 24 );
++
++        i_combined += ( o_lfsr0 ^ invert ) + o_lfsr1;
++        k[i] = i_combined & 0xff;
++        i_combined >>= 8;
+     }
+ 
+-    // 0000 0000 0000 0000 0000 0000
+-    // rccc crrc cccr rccc crrc cccr
+-
+-    // Byte 1
+-    row = 0;
+-    row |= ((er[0] & 0x80) >> 6);
+-    row |= ((er[0] & 0x04) >> 2);
+-
+-    column = 0;
+-    column |= ((er[0] & 0x78) >> 3);
+-
+-    ser[0] |= ((unsigned char)S1[row * 16 + column] << 4);
+-
+-
+-    row = 0;
+-    row |= (er[0] & 0x02);
+-    row |= ((er[1] & 0x10) >> 4);
+-
+-    column = 0;
+-    column |= ((er[0] & 0x01) << 3);
+-    column |= ((er[1] & 0xE0) >> 5);
+-
+-    ser[0] |= (unsigned char)S2[row * 16 + column];
+-
+-    // Byte 2
+-    row = 0;
+-    row |= ((er[1] & 0x08) >> 2);
+-    row |= ((er[2] & 0x40) >> 6);
+-
+-    column = 0;
+-    column |= ((er[1] & 0x07) << 1);
+-    column |= ((er[2] & 0x80) >> 7);
+-
+-    ser[1] |= ((unsigned char)S3[row * 16 + column] << 4);
+-
+-    row = 0;
+-    row |= ((er[2] & 0x20) >> 4);
+-    row |= (er[2] & 0x01);
+-
+-    column = 0;
+-    column |= ((er[2] & 0x1E) >> 1);
+-
+-    ser[1] |= (unsigned char)S4[row * 16 + column];
+-
+-    // Byte 3
+-    row = 0;
+-    row |= ((er[3] & 0x80) >> 6);
+-    row |= ((er[3] & 0x04) >> 2);
+-
+-    column = 0;
+-    column |= ((er[3] & 0x78) >> 3);
+-
+-    ser[2] |= ((unsigned char)S5[row * 16 + column] << 4);
+-
+-    row = 0;
+-    row |= (er[3] & 0x02);
+-    row |= ((er[4] & 0x10) >> 4);
+-
+-    column = 0;
+-    column |= ((er[3] & 0x01) << 3);
+-    column |= ((er[4] & 0xE0) >> 5);
+-
+-    ser[2] |= (unsigned char)S6[row * 16 + column];
+-
+-    
+-    // Byte 4
+-    row = 0;
+-    row |= ((er[4] & 0x08) >> 2);
+-    row |= ((er[5] & 0x40) >> 6);
+-
+-    column = 0;
+-    column |= ((er[4] & 0x07) << 1);
+-    column |= ((er[5] & 0x80) >> 7);
+-
+-    ser[3] |= ((unsigned char)S7[row * 16 + column] << 4);
+-
+-    row = 0;
+-    row |= ((er[5] & 0x20) >> 4);
+-    row |= (er[5] & 0x01);
+-
+-    column = 0;
+-    column |= ((er[5] & 0x1E) >> 1);
+-
+-    ser[3] |= (unsigned char)S8[row * 16 + column];
+-
+-    for (i = 0; i < 4; i++)
+-    {
+-      rn[i] = 0;
+-    }
+-
+-    for (i = 0; i < 32; i++)
+-    {
+-      shift_size = right_sub_message_permutation[i];
+-      shift_byte = 0x80 >> ((shift_size - 1) % 8); 
+-      shift_byte &= ser[(shift_size - 1) / 8];
+-      shift_byte <<= ((shift_size - 1) % 8);
+-
+-      rn[i / 8] |= (shift_byte >> i % 8);
+-    }
+-
+-    for (i = 0; i < 4; i++)
+-    {
+-      rn[i] ^= l[i];
+-    }
+-
+-    for (i = 0; i < 4; i++)
+-    {
+-      l[i] = ln[i];
+-      r[i] = rn[i];
+-    }
+-  }
+-
+-  unsigned char pre_end_permutation[8];
+-  for (i = 0; i < 4; i++)
+-  {
+-    pre_end_permutation[i] = r[i];
+-    pre_end_permutation[4 + i] = l[i];
+-  }
+-
+-  for (i = 0; i < 64; i++)
+-  {
+-    shift_size = final_message_permutation[i];
+-    shift_byte = 0x80 >> ((shift_size - 1) % 8);
+-    shift_byte &= pre_end_permutation[(shift_size - 1) / 8];
+-    shift_byte <<= ((shift_size - 1) % 8);
+-
+-    processed_piece[i / 8] |= (shift_byte >> i % 8);
+-  }
+-  //}
+-  int result = 0;
+-  for (int i = 0; i < 8; i++)
+-  {
+-    result += processed_piece[i];
+-  }
+-  return result;
++    p_result[4] = k[4] ^ p_css_tab1[p_crypted[4]] ^ p_crypted[3];
++    p_result[3] = k[3] ^ p_css_tab1[p_crypted[3]] ^ p_crypted[2];
++    p_result[2] = k[2] ^ p_css_tab1[p_crypted[2]] ^ p_crypted[1];
++    p_result[1] = k[1] ^ p_css_tab1[p_crypted[1]] ^ p_crypted[0];
++    p_result[0] = k[0] ^ p_css_tab1[p_crypted[0]] ^ p_result[4];
++
++    p_result[4] = k[4] ^ p_css_tab1[p_result[4]] ^ p_result[3];
++    p_result[3] = k[3] ^ p_css_tab1[p_result[3]] ^ p_result[2];
++    p_result[2] = k[2] ^ p_css_tab1[p_result[2]] ^ p_result[1];
++    p_result[1] = k[1] ^ p_css_tab1[p_result[1]] ^ p_result[0];
++    p_result[0] = k[0] ^ p_css_tab1[p_result[0]];
+ }
+ 
+-int main(int argc, char *argv[])
++/*int main(int argc, char *argv[])
+ {
+   uint8_t* arg1 = (uint8_t*)argv[1];
+   uint8_t* arg2 = (uint8_t*)argv[2];
+@@ -555,4 +279,33 @@ int main(int argc, char *argv[])
+   }
+   printf("Output: %u\nTime: %lf\n", result, (duration_sum / 10000));
+   return 0;
++}*/
++
++/**
++ * argv[1] = 0x00 or 0x00
++ * argv[2] = 5 byte string
++ * argv[3] =
++*/
++int main(int argc, char *argv[]) {
++  uint8_t invert = std::stoull(argv[1]);
++  uint8_t* p_key = (uint8_t*)argv[2];
++  uint8_t* p_crypted = (uint8_t*)argv[3];
++  uint8_t* p_result = (uint8_t*)argv[4];
++  // uint8_t p_result[5];
++  memset(p_result, 0, 5);
++  double duration_sum = 0;
++  uint8_t result;
++  //int result = 0;
++  for (int i = 0; i < 10000; ++i) {
++    auto t1 = std::chrono::high_resolution_clock::now();
++    target_function(invert, p_key, p_crypted, p_result);
++    auto t2 = std::chrono::high_resolution_clock::now();
++    duration_sum += (double)std::chrono::duration_cast<std::chrono::microseconds>( t2 - t1 ).count();
++  }
++  printf("Time: %lf\n", (duration_sum / 10000));
++  printf("Result: %d\n", result);
++  for (int i = 0; i < 5; i++) {
++    printf("Char: %x\n", p_result[i]);
++  }
++  return 0;
+ }
+diff --git a/loki/translator/src/template.cpp b/loki/translator/src/template.cpp
+index a81d5a0..269b616 100644
+--- a/loki/translator/src/template.cpp
++++ b/loki/translator/src/template.cpp
+@@ -2099,29 +2099,48 @@ uint64_t parse_input(char const *s, int base = 10) {
+     return (uint64_t)res;
+ }
+ 
+-int main(int argc, char *argv[]) {
+-  if (argc < 1 + argument_count) {
+-    printf("Expected %lu parameters\n", argument_count);
+-    return -1;
+-  }
+-
++int vm_entry_wrapper( uint8_t invert, uint8_t *p_key, uint8_t *p_crypted, uint8_t *p_result ) {
+   /* Prepare arguments for VM */
+-  uint64_t vm_argv[argument_count];
+-  for (int i = 0; i < argument_count; ++i) {
+-    /* Convert number_strings to number */
+-    vm_argv[i] = parse_input(argv[i+1]);
+-    printf("arg %d: 0x%lx\n", i, vm_argv[i]);
+-  }
+-  double duration_sum = 0;
+-  int result = 0;
+-  for (int i = 0; i < 10000; ++i) {
+-    auto t1 = std::chrono::high_resolution_clock::now();
+-    vm_setup(vm_argv, context, 0);
+-    auto t2 = std::chrono::high_resolution_clock::now();
+-    duration_sum += std::chrono::duration<double, std::micro>( t2 - t1 ).count();
+-  }
+-  printf("Output: %lu\n", context.regs[kOffsetOutput]);
+-  printf("Time: %lf\n", (duration_sum / 10000));
+-  printf("Done.\n");
++  uint64_t vm_argv[4];
++
++  printf("Entering the VM.\n");
++  vm_argv[0] = (uint64_t) invert;
++  vm_argv[1] = (uint64_t) p_key;
++  vm_argv[2] = (uint64_t) p_crypted;
++  vm_argv[3] = (uint64_t) p_result;
++
++  auto t1 = std::chrono::high_resolution_clock::now();
++  vm_setup(vm_argv, context, 0);
++  auto t2 = std::chrono::high_resolution_clock::now();
++
++  printf("Leaving VM.\n");
+   return 0;
+ }
++
++
++// int main(int argc, char *argv[]) {
++//   if (argc < 1 + argument_count) {
++//     printf("Expected %lu parameters\n", argument_count);
++//     return -1;
++//   }
++
++//   /* Prepare arguments for VM */
++//   uint64_t vm_argv[argument_count];
++//   for (int i = 0; i < argument_count; ++i) {
++//     /* Convert number_strings to number */
++//     vm_argv[i] = parse_input(argv[i+1]);
++//     printf("arg %d: 0x%lx\n", i, vm_argv[i]);
++//   }
++//   double duration_sum = 0;
++//   int result = 0;
++//   for (int i = 0; i < 10000; ++i) {
++//     auto t1 = std::chrono::high_resolution_clock::now();
++//     vm_setup(vm_argv, context, 0);
++//     auto t2 = std::chrono::high_resolution_clock::now();
++//     duration_sum += std::chrono::duration<double, std::micro>( t2 - t1 ).count();
++//   }
++//   printf("Output: %lu\n", context.regs[kOffsetOutput]);
++//   printf("Time: %lf\n", (duration_sum / 10000));
++//   printf("Done.\n");
++//   return 0;
++// }
