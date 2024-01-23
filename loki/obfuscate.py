@@ -631,7 +631,7 @@ if __name__ == "__main__":
     if (Path(cargs.path[0])).exists():
         print(f"Path {cargs.path[0]} already exists. Aborting..")
         sys.exit(1)
-    target_path.mkdir()
+    target_path.mkdir(parents=True)  # allows mkdir() to create any necessary intermediate directories, to avoid any FileNotFoundError.
     setup_logging(target_path, cargs.log_level * 10)
 
     main(target_path, cargs)
